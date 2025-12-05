@@ -4,7 +4,7 @@ namespace Mintopia\Flights;
 
 use Mintopia\Flights\Protobuf\ItineraryData;
 
-class Trip
+class Itinerary
 {
     public ?string $note = null;
     public int $price = 0;

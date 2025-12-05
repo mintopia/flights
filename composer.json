@@ -1,14 +1,20 @@
 {
   "name": "mintopia/flights",
-  "description": "description",
+  "description": "Library for searching Google Flights",
   "minimum-stability": "stable",
   "license": "MIT",
-  "version": "1.0.0",
+  "type": "library",
+  "homepage": "https://github.com/mintopia/flights",
   "authors": [
     {
       "name": "Jessica Smith",
       "email": "jess@mintopia.net"
     }
+  ],
+  "keywords": [
+    "flights",
+    "google-flights",
+    "fast-flights"
   ],
   "autoload": {
     "psr-4": {
@@ -16,6 +22,7 @@
     }
   },
   "require": {
+    "php": "^8.4|^8.5",
     "psr/http-client": "^1.0",
     "psr/log": "^3.0"
   },

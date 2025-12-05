@@ -2,6 +2,8 @@
 
 namespace Mintopia\Flights\Exceptions;
 
-class FlightException extends \Exception
+use Exception;
+
+class FlightException extends Exception
 {
 }

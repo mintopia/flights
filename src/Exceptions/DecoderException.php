@@ -2,6 +2,8 @@
 
 namespace Mintopia\Flights\Exceptions;
 
-class DecoderException extends \Exception
+use Exception;
+
+class DecoderException extends Exception
 {
 }

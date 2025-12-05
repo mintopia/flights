@@ -4,12 +4,8 @@ namespace Mintopia\Flights\Commands;
 
 use GuzzleHttp\Client;
 use GuzzleHttp\Psr7\HttpFactory;
-use Mintopia\Flights\Enums\SortOrder;
-use Mintopia\Flights\Flight;
-use Mintopia\Flights\Journey;
+use Mintopia\Flights\Itinerary;
 use Mintopia\Flights\Search;
-use Mintopia\Flights\Trip;
-use Monolog\Logger;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Helper\TableSeparator;
 use Symfony\Component\Console\Input\InputArgument;
@@ -26,7 +22,7 @@ class SearchCommand extends Command
     protected function configure(): void
     {
         $this->setName('search');
-        $this->setDescription('Search for Flights');
+        $this->setDescription('Search for One-Way Flights');
 
         $this->addArgument('from', InputArgument::REQUIRED, 'Airports to leave from');
         $this->addArgument('to', InputArgument::REQUIRED, 'Airports to arrive at');
@@ -56,32 +52,32 @@ class SearchCommand extends Command
 
         // Returns
         $search = new Search($client, $requestFactory, $logger);
-        $search->addLeg($fromAirports, $toAirports, $date, $maxStops);
-        $trips = $search->getTrips();
-        $this->renderTrips($trips);
+        $search->addSegment($fromAirports, $toAirports, $date, $maxStops);
+        $trips = $search->getItineraries();
+        $this->renderItineraries($trips);
 
         return self::SUCCESS;
     }
 
     /**
-     * @param array<int, Trip> $trips
+     * @param array<int, Itinerary> $itineraries
      * @return void
      */
-    protected function renderTrips(array $trips): void
+    protected function renderItineraries(array $itineraries): void
     {
-        usort($trips, function ($a, $b) {
+        usort($itineraries, function ($a, $b) {
             return $a->price <=> $b->price;
         });
         $table = $this->io->createTable();
         $table->setHeaders(['Departure', 'From', 'To', 'Arrival', 'Operator', 'Flight', 'Stops', 'Duration', 'Price', 'Notes']);
 
-        foreach ($trips as $i => $trip) {
+        foreach ($itineraries as $i => $itinerary) {
             if ($i > 0) {
                 $table->addRow(new TableSeparator());
             }
-            $tripPrice = sprintf('%.2f', $trip->price / 100) . ' ' . $trip->currency;
-            $tripNote = $trip->note;
-            foreach ($trip->journeys as $journey) {
+            $itineraryPrice = sprintf('%.2f', $itinerary->price / 100) . ' ' . $itinerary->currency;
+            $itineraryNote = $itinerary->note;
+            foreach ($itinerary->journeys as $journey) {
                 $stops = $journey->stops;
                 $duration = $journey->duration->format('%dd %hh %im');
                 foreach ($journey->flights as $i => $flight) {
@@ -94,13 +90,13 @@ class SearchCommand extends Command
                         $flight->code,
                         $stops,
                         $duration,
-                        $tripPrice,
-                        $tripNote,
+                        $itineraryPrice,
+                        $itineraryNote,
                     ]);
                     $stops = '';
                     $duration = '';
-                    $tripPrice = '';
-                    $tripNote = '';
+                    $itineraryPrice = '';
+                    $itineraryNote = '';
                 }
             }
         }

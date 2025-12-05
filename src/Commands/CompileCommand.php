@@ -2,20 +2,9 @@
 
 namespace Mintopia\Flights\Commands;
 
-use GuzzleHttp\Client;
-use GuzzleHttp\Psr7\HttpFactory;
-use Mintopia\Flights\Enums\SortOrder;
 use Mintopia\Flights\Exceptions\FlightException;
-use Mintopia\Flights\Flight;
-use Mintopia\Flights\Journey;
-use Mintopia\Flights\Search;
-use Mintopia\Flights\Trip;
-use Monolog\Logger;
 use Symfony\Component\Console\Command\Command;
-use Symfony\Component\Console\Helper\TableSeparator;
-use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
-use Symfony\Component\Console\Logger\ConsoleLogger;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
 

@@ -6,6 +6,7 @@
 
     <file>src</file>
     <file>tests</file>
+    <exclude-pattern>src/Protobuf/**</exclude-pattern>
 
     <arg value="np"/>
     <rule ref="PSR12"/>

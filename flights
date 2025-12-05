@@ -1,3 +1,4 @@
+#!/usr/bin/env php
 <?php
 include __DIR__ . '/vendor/autoload.php';
 if (!class_exists('Symfony\Component\Console\Application')) {

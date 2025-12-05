@@ -2,11 +2,14 @@
 
 namespace Mintopia\Flights;
 
+use DateMalformedStringException;
+use DateTimeImmutable;
 use DateTimeInterface;
+use DateTimeZone;
 use Mintopia\Flights\Protobuf\Airport;
 use Mintopia\Flights\Protobuf\FlightData;
 
-class Leg
+class Segment
 {
     /**
      * @var array <int, string>
@@ -26,15 +29,15 @@ class Leg
      * @param DateTimeInterface|string|null $date
      * @param int $maxStops
      * @param array<string> $airlines
-     * @throws \DateMalformedStringException
+     * @throws DateMalformedStringException
      */
     public function __construct(array|string $from, array|string $to, DateTimeInterface|string|null $date = null, public int $maxStops = 0, public array $airlines = [])
     {
         if ($date === null) {
-            $this->date = new \DateTimeImmutable('now', new \DateTimeZone('UTC'));
+            $this->date = new DateTimeImmutable('now', new DateTimeZone('UTC'));
         }
         if (is_string($date)) {
-            $this->date =  new \DateTimeImmutable($date, new \DateTimeZone('UTC'));
+            $this->date =  new DateTimeImmutable($date, new DateTimeZone('UTC'));
         }
         if (is_array($from)) {
             $this->from = $from;

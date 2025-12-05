@@ -4,7 +4,6 @@ namespace Mintopia\Flights;
 
 use DateTimeImmutable;
 use DateTimeInterface;
-use DateTimeZone;
 use Mintopia\Flights\Exceptions\DecoderException;
 use Mintopia\Flights\Protobuf\FlightSummary\Itinerary\Sector\Flight as ProtoFlight;
 

@@ -2,16 +2,19 @@
 
 namespace Mintopia\Flights;
 
+use DateMalformedStringException;
+use DateTimeInterface;
 use Mintopia\Flights\Enums\BookingClass;
 use Mintopia\Flights\Enums\PassengerType;
 use Mintopia\Flights\Enums\SortOrder;
 use Mintopia\Flights\Exceptions\DecoderException;
 use Mintopia\Flights\Exceptions\FlightException;
+use Mintopia\Flights\Exceptions\GoogleException;
 use Mintopia\Flights\Exceptions\SearchException;
 use Mintopia\Flights\Protobuf\Info;
 use Mintopia\Flights\Protobuf\ItineraryData;
 use Mintopia\Flights\Protobuf\Seat;
-use Mintopia\Flights\Exceptions\GoogleException;
+use Mintopia\Flights\Protobuf\Trip;
 use Psr\Http\Client\ClientInterface;
 use Psr\Http\Message\RequestFactoryInterface;
 use Psr\Http\Message\RequestInterface;
@@ -32,9 +35,9 @@ class Search implements LoggerAwareInterface
     public BookingClass $bookingClass = BookingClass::Economy;
 
     /**
-     * @var array <int, Leg>
+     * @var array <int, Segment>
      */
-    public array $legs = [];
+    public array $segments = [];
 
     protected LoggerInterface $log;
 
@@ -56,6 +59,16 @@ class Search implements LoggerAwareInterface
         return $this;
     }
 
+    /**
+     * @param array<PassengerType> $passengers
+     * @return $this
+     */
+    public function setPassengers(array $passengers): self
+    {
+        $this->passengers = $passengers;
+        return $this;
+    }
+
     public function clearPassengers(): self
     {
         $this->passengers = [];
@@ -65,22 +78,22 @@ class Search implements LoggerAwareInterface
     /**
      * @param string|array<int, string> $from
      * @param string|array<int, string> $to
-     * @param string|\DateTimeInterface|null $date
+     * @param string|DateTimeInterface|null $date
      * @param int $maxStops
      * @param array<int, string>|null $airlines
      * @return $this
-     * @throws \DateMalformedStringException
+     * @throws DateMalformedStringException
      */
-    public function addLeg(string|array $from, string|array $to, string|\DateTimeInterface|null $date = null, int $maxStops = 0, ?array $airlines = []): self
+    public function addSegment(string|array $from, string|array $to, string|DateTimeInterface|null $date = null, int $maxStops = 0, ?array $airlines = []): self
     {
-        $journey = new Leg(...func_get_args());
-        $this->legs[] = $journey;
+        $journey = new Segment(...func_get_args());
+        $this->segments[] = $journey;
         return $this;
     }
 
-    public function clearLeg(): self
+    public function clearSegments(): self
     {
-        $this->legs = [];
+        $this->segments = [];
         return $this;
     }
 
@@ -101,23 +114,23 @@ class Search implements LoggerAwareInterface
      */
     protected function encode(?array $itineraryData = null): string
     {
-        $legCount = count($this->legs);
-        if ($legCount === 0) {
-            throw new SearchException('No legs specified');
+        $segmentCount = count($this->segments);
+        if ($segmentCount === 0) {
+            throw new SearchException('No segments specified');
         }
         $flightData = [];
-        foreach ($this->legs as $i => $leg) {
-            $legData = $leg->encode();
+        foreach ($this->segments as $i => $segment) {
+            $segmentData = $segment->encode();
             if (isset($itineraryData[$i])) {
-                $legData->setItinData(array_slice($itineraryData, 0, $i + 1));
+                $segmentData->setItinData(array_slice($itineraryData, 0, $i + 1));
             }
-            $flightData[] = $legData;
+            $flightData[] = $segmentData;
         }
 
         $tripType = match (true) {
-            $legCount === 1 => Protobuf\Trip::ONE_WAY,
-            $legCount === 2 => Protobuf\Trip::ROUND_TRIP,
-            true => Protobuf\Trip::MULTI_CITY,
+            $segmentCount === 1 => Trip::ONE_WAY,
+            $segmentCount === 2 => Trip::ROUND_TRIP,
+            true => Trip::MULTI_CITY,
         };
 
         $seat = match ($this->bookingClass) {
@@ -143,66 +156,66 @@ class Search implements LoggerAwareInterface
     }
 
     /**
-     * @return array<int, Trip>
+     * @return array<int, Itinerary>
      */
-    public function getTrips(): array
+    public function getItineraries(): array
     {
-        $trips = [];
-        $this->log->debug("[Leg:1] Fetching journeys");
+        $itineraries = [];
+        $this->log->debug("[Segment:1] Fetching journeys");
 
         // Get our first journeys
         $journeys = $this->getJourneys();
-        $this->log->debug("[Leg:1] Found " . count($journeys) . " journeys");
+        $this->log->debug("[Segment:1] Found " . count($journeys) . " journeys");
         foreach ($journeys as $journey) {
-            $trip = new Trip();
-            $trip->addJourney($journey);
-            $trips[] = $trip;
+            $itinerary = new Itinerary();
+            $itinerary->addJourney($journey);
+            $itineraries[] = $itinerary;
         }
 
-        $legCount = count($this->legs);
-        for ($i = 1; $i < count($this->legs); $i++) {
-            $newTrips = [];
-            $prefix = '[Leg:' . $i + 1 . ']';
+        $segmentCount = count($this->segments);
+        for ($i = 1; $i < count($this->segments); $i++) {
+            $newItineraries = [];
+            $prefix = '[Segment:' . $i + 1 . ']';
             $this->log->debug("{$prefix} Fetching journeys");
-            foreach ($trips as $tripIndex => $trip) {
-                $prefix = '[Leg:' . $i + 1 . '][Trip:' . $tripIndex . ']';
-                $journeys = $this->getJourneys($trip->getItineraryData());
+            foreach ($itineraries as $index => $itinerary) {
+                $prefix = '[Segment:' . $i + 1 . '][Itinerary:' . $index . ']';
+                $journeys = $this->getJourneys($itinerary->getItineraryData());
                 if (count($journeys) === 0) {
-                    $this->log->debug("{$prefix} No journeys found, removing this trip as it can't be completed");
+                    $this->log->debug("{$prefix} No journeys found, removing this itinerary as it can't be completed");
                     continue;
                 }
                 $this->log->debug("{$prefix} Found " . count($journeys) . " journeys");
                 foreach ($journeys as $journey) {
                     // We found a journey, clone our current trip, add it to our list for the next round.
-                    $clone = clone $trip;
+                    $clone = clone $itinerary;
                     $clone->addJourney($journey);
-                    $newTrips[] = $clone;
+                    $newItineraries[] = $clone;
                 }
             }
-            $trips = $newTrips;
+            $itineraries = $newItineraries;
 
-            $this->log->debug("{$prefix} " . count($trips) . " trips");
+            $this->log->debug("{$prefix} " . count($itineraries) . " trips");
         }
 
-        array_filter($trips, function (Trip $trip) use ($legCount) {
-            return count($trip->journeys) === $legCount;
+        array_filter($itineraries, function (Itinerary $itinerary) use ($segmentCount) {
+            return count($itinerary->journeys) === $segmentCount;
         });
-        usort($trips, function (Trip $trip1, Trip $trip2) {
+        usort($itineraries, function (Itinerary $itinerary1, Itinerary $itinerary2) {
             switch ($this->sortOrder) {
                 case SortOrder::DepartureTime:
-                    return $trip1->outbound->departure <=> $trip2->outbound->departure;
+                    return $itinerary1->outbound->departure <=> $itinerary2->outbound->departure;
                 case SortOrder::Duration:
-                    return $trip1->outbound->duration <=> $trip2->outbound->duration;
+                    return $itinerary1->outbound->duration <=> $itinerary2->outbound->duration;
                 case SortOrder::Price:
-                    return $trip1->price <=> $trip2->price;
+                    return $itinerary1->price <=> $itinerary2->price;
                 default:
-                    if ($trip1->outbound->stops !== $trip2->outbound->stops) {
-                        return $trip1->outbound->stops <=> $trip2->outbound->stops;
+                    if ($itinerary1->outbound->stops !== $itinerary2->outbound->stops) {
+                        return $itinerary1->outbound->stops <=> $itinerary2->outbound->stops;
                     }
-                    return $trip1->price <=> $trip2->price;
+                    return $itinerary1->price <=> $itinerary2->price;
             }
         });
-        return $trips;
+        return $itineraries;
     }
 
     /**
