@@ -229,6 +229,7 @@ copied to the correct location.
 
 ## Todo
 
+- Support for multi city searches
 - More features, plane type, WiFi, seat pitch, etc.
 - Unit tests, coverage and mutation testing
 - Full documentation

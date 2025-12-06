@@ -142,6 +142,9 @@ class Search implements LoggerAwareInterface
         if ($segmentCount === 0) {
             throw new SearchException('No segments specified');
         }
+        if ($segmentCount > 2) {
+            throw new SearchException('Multi city searches are not supported');
+        }
         $flightData = [];
         foreach ($this->segments as $i => $segment) {
             $segmentData = $segment->encode();
@@ -227,7 +230,7 @@ class Search implements LoggerAwareInterface
         usort($itineraries, function (Itinerary $itinerary1, Itinerary $itinerary2) {
             switch ($this->sortOrder) {
                 case SortOrder::DepartureTime:
-                    return $itinerary1->outbound->departure <=> $itinerary2->outbound->departure;
+                    return $itinerary1->outbound->departure->getTimestamp() <=> $itinerary2->outbound->departure->getTimestamp();
                 case SortOrder::Duration:
                     return $itinerary1->outbound->duration <=> $itinerary2->outbound->duration;
                 case SortOrder::Price:

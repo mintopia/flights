@@ -4,6 +4,7 @@ namespace Mintopia\Flights\Commands;
 
 use GuzzleHttp\Client;
 use GuzzleHttp\Psr7\HttpFactory;
+use Mintopia\Flights\Enums\SortOrder;
 use Mintopia\Flights\Itinerary;
 use Mintopia\Flights\Search;
 use Symfony\Component\Console\Command\Command;
@@ -28,7 +29,8 @@ class SearchCommand extends Command
         $this->addArgument('to', InputArgument::REQUIRED, 'Airports to arrive at');
         $this->addArgument('date', InputArgument::OPTIONAL, 'Date', '+1 day');
 
-        $this->addOption('maxstops', 's', InputOption::VALUE_REQUIRED, 'Maximum number of stops allowed', 0, [0, 1,2,3]);
+        $this->addOption('maxstops', 's', InputOption::VALUE_REQUIRED, 'Maximum number of stops allowed', 0);
+        $this->addOption('airlines', 'a', InputOption::VALUE_OPTIONAL, 'Airlines to search for', '');
     }
 
     public function execute(InputInterface $input, OutputInterface $output): int
@@ -50,9 +52,11 @@ class SearchCommand extends Command
         $date = $input->getArgument('date');
         $maxStops = $input->getOption('maxstops');
 
+        $airlines = explode(',', $input->getOption('airlines'));
+
         // Returns
         $search = new Search($client, $requestFactory, $logger);
-        $search->addSegment($fromAirports, $toAirports, $date, $maxStops);
+        $search->addSegment($fromAirports, $toAirports, $date, $maxStops, $airlines);
         $trips = $search->getItineraries();
         $this->renderItineraries($trips);
 
@@ -65,9 +69,6 @@ class SearchCommand extends Command
      */
     protected function renderItineraries(array $itineraries): void
     {
-        usort($itineraries, function ($a, $b) {
-            return $a->price <=> $b->price;
-        });
         $table = $this->io->createTable();
         $table->setHeaders(['Departure', 'From', 'To', 'Arrival', 'Operator', 'Flight', 'Stops', 'Duration', 'Price', 'Notes']);
 

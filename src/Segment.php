@@ -76,8 +76,8 @@ class Segment
         $flightData = new FlightData()
             ->setToFlight($to)
             ->setFromFlight($from)
-            ->setMaxStops($this->maxStops)
-            ->setDate($this->date->format('Y-m-d'));
+            ->setDate($this->date->format('Y-m-d'))
+            ->setMaxStops($this->maxStops);
         if (!empty($this->airlines)) {
             $flightData->setAirlines($this->airlines);
         }
