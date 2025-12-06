@@ -75,6 +75,30 @@ class Search implements LoggerAwareInterface
         return $this;
     }
 
+    public function setBookingClass(BookingClass $bookingClass): self
+    {
+        $this->bookingClass = $bookingClass;
+        return $this;
+    }
+
+    public function setSortOrder(SortOrder $sortOrder): self
+    {
+        $this->sortOrder = $sortOrder;
+        return $this;
+    }
+
+    public function setLanguage(string $language): self
+    {
+        $this->language = $language;
+        return $this;
+    }
+
+    public function setCurrency(string $currency): self
+    {
+        $this->currency = $currency;
+        return $this;
+    }
+
     /**
      * @param string|array<int, string> $from
      * @param string|array<int, string> $to
@@ -84,7 +108,7 @@ class Search implements LoggerAwareInterface
      * @return $this
      * @throws DateMalformedStringException
      */
-    public function addSegment(string|array $from, string|array $to, string|DateTimeInterface|null $date = null, int $maxStops = 0, ?array $airlines = []): self
+    public function addSegment(string|array $from, string|array $to, string|DateTimeInterface|null $date = null, int $maxStops = 0, null|string|array $airlines = []): self
     {
         $journey = new Segment(...func_get_args());
         $this->segments[] = $journey;

@@ -21,6 +21,11 @@ class Segment
      */
     public array $to = [];
 
+    /**
+     * @var array <int, string>
+     */
+    protected array $airlines = [];
+
     public DateTimeInterface $date;
 
     /**
@@ -31,14 +36,23 @@ class Segment
      * @param array<string> $airlines
      * @throws DateMalformedStringException
      */
-    public function __construct(array|string $from, array|string $to, DateTimeInterface|string|null $date = null, public int $maxStops = 0, public array $airlines = [])
+    public function __construct(array|string $from, array|string $to, DateTimeInterface|string|null $date = null, public int $maxStops = 0, null|string|array $airlines = [])
     {
+        if ($airlines === null) {
+            $this->airlines = [];
+        } elseif (!is_array($airlines)) {
+            $this->airlines = [$airlines];
+        } else {
+            $this->airlines = $airlines;
+        }
         if ($date === null) {
             $this->date = new DateTimeImmutable('now', new DateTimeZone('UTC'));
-        }
-        if (is_string($date)) {
+        } elseif (is_string($date)) {
             $this->date =  new DateTimeImmutable($date, new DateTimeZone('UTC'));
+        } elseif ($date instanceof DateTimeInterface) {
+            $this->date = $date;
         }
+
         if (is_array($from)) {
             $this->from = $from;
         } else {

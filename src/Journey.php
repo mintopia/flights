@@ -41,7 +41,7 @@ class Journey
     public function parse(array $data): self
     {
         $summary = new FlightSummary();
-        $summaryData = str_replace('\u003d', '=', substr($data[8], 2, -2));
+        $summaryData = $this->getSummaryData($data[8] ?? '');
         $summary->mergeFromString(base64_decode($summaryData));
         $flightSummary = $summary->getItinerary()?->getSector()?->getFlight();
         if ($flightSummary === null || count($flightSummary) < count($data[0][2])) {
@@ -72,6 +72,20 @@ class Journey
         $this->currency = $price->getCurrency();
 
         return $this;
+    }
+
+    protected function getSummaryData(string $data): string
+    {
+        $start = strpos($data, '"');
+        if ($start === false) {
+            throw new DecoderException('Unable to decode flight summary');
+        }
+        $start++;
+        $end = strpos($data, '"', $start);
+        if ($end === false) {
+            throw new DecoderException('Unable to decode flight summary');
+        }
+        return str_replace('\u003d', '=', substr($data, $start, $end - $start));
     }
 
     /**

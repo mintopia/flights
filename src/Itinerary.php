@@ -66,14 +66,14 @@ class Itinerary
 
     protected function updatePrice(): void
     {
+        $this->currency = $this->journeys[0]->currency ?? null;
         $this->price = 0;
-        $this->currency = null;
-        foreach ($this->journeys as $journey) {
-            if ($this->price >= $journey->price) {
-                continue;
-            }
-            $this->price = $journey->price;
-            $this->currency = $journey->currency;
+        $prices = array_map(function (Journey $journey) {
+            return $journey->price;
+        }, $this->journeys);
+        if (!empty($prices)) {
+            sort($prices);
+            $this->price = end($prices);
         }
     }
 
