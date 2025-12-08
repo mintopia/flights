@@ -1,67 +1,36 @@
 <?php
-
-namespace Mintopia\Flights;
+declare(strict_types=1);
+namespace Mintopia\Flights\Models;
 
 use DateMalformedStringException;
 use DateTimeImmutable;
 use DateTimeInterface;
 use DateTimeZone;
+use Mintopia\Flights\Container;
 use Mintopia\Flights\Protobuf\Airport;
 use Mintopia\Flights\Protobuf\FlightData;
 
 class Segment
 {
-    /**
-     * @var array <int, string>
-     */
-    public array $from = [];
-
-    /**
-     * @var array <int, string>
-     */
-    public array $to = [];
-
-    /**
-     * @var array <int, string>
-     */
-    protected array $airlines = [];
-
     public DateTimeInterface $date;
 
     /**
-     * @param array<int, string>|string $from
-     * @param array<int, string>|string $to
-     * @param DateTimeInterface|string|null $date
+     * @param Container $objectFactory
+     * @param array<int, string> $from
+     * @param array<int, string> $to
+     * @param string|DateTimeInterface|null $date
      * @param int $maxStops
-     * @param array<string> $airlines
+     * @param null|array<string> $airlines
      * @throws DateMalformedStringException
      */
-    public function __construct(array|string $from, array|string $to, DateTimeInterface|string|null $date = null, public int $maxStops = 0, null|string|array $airlines = [])
+    public function __construct(protected Container $container, protected array $from, protected array $to, string|DateTimeInterface|null $date = null, public int $maxStops = 0, protected array $airlines = [])
     {
-        if ($airlines === null) {
-            $this->airlines = [];
-        } elseif (!is_array($airlines)) {
-            $this->airlines = [$airlines];
-        } else {
-            $this->airlines = $airlines;
-        }
         if ($date === null) {
             $this->date = new DateTimeImmutable('now', new DateTimeZone('UTC'));
         } elseif (is_string($date)) {
             $this->date =  new DateTimeImmutable($date, new DateTimeZone('UTC'));
         } elseif ($date instanceof DateTimeInterface) {
             $this->date = $date;
-        }
-
-        if (is_array($from)) {
-            $this->from = $from;
-        } else {
-            $this->from[] = $from;
-        }
-        if (is_array($to)) {
-            $this->to = $to;
-        } else {
-            $this->to[] = $to;
         }
     }
 

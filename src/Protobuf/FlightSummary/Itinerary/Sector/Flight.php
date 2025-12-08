@@ -5,9 +5,7 @@
 
 namespace Mintopia\Flights\Protobuf\FlightSummary\Itinerary\Sector;
 
-use Google\Protobuf\Internal\GPBType;
 use Google\Protobuf\Internal\GPBUtil;
-use Google\Protobuf\RepeatedField;
 
 /**
  * Generated from protobuf message <code>protobuf.FlightSummary.Itinerary.Sector.Flight</code>

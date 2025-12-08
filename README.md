@@ -44,7 +44,7 @@ this. It can be passed in to the constructor or a servce container can provide t
 $client = new GuzzleHttp\Client();
 $requestFactory = new GuzzleHttp\Psr7\HttpFactory();
 
-$search = new Mintopia\Flights\Search($client, $requestFactory);
+$search = new Mintopia\Flights\QueryBuilder($client, $requestFactory);
 ```
 
 You can also specify a PSR-3 compatible logging interface to either the constructor or via the `setLogger` method. If
@@ -68,8 +68,8 @@ $log = new Logger('flights');
 $log->pushHandler(new StreamHandler('flights.log', Level::Debug));
 
 // Now create the flight search
-use Mintopia\Flights\Search;
-$search = new Search($client, $requestFactory, $log);
+use Mintopia\Flights\QueryBuilder;
+$search = new QueryBuilder($client, $requestFactory, $log);
 ```
 
 Finally, if you're using Laravel, then you can just type hint the search client in your controller actions or
@@ -79,11 +79,11 @@ constructors.
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Response;
-use Mintopia\Flights\Search;
+use Mintopia\Flights\QueryBuilder;
 
 class FlightController extends Controller
 {
-  public function index(Search $search): Response
+  public function index(QueryBuilder $search): Response
   {
     // Use the search client
     $itineraries = $client->addSegment('LHR', 'JFK')->getItineraries();
@@ -91,12 +91,13 @@ class FlightController extends Controller
 }
 ```
 You can also just use `$app->make();` or the `make()` helper function.
+
 ```php
 <?php
 // These all do the same thing
-$search = $app->make(Mintopia\Flights\Search::class);
-$search = App::make(Mintopia\Flights\Search::class);
-$search = make(Mintopia\Flights\Search::class);
+$search = $app->make(Mintopia\Flights\QueryBuilder::class);
+$search = App::make(Mintopia\Flights\QueryBuilder::class);
+$search = make(Mintopia\Flights\QueryBuilder::class);
 ```
 
 ### Searching for flights
@@ -107,14 +108,14 @@ will then use Google Flights to fetch possible itineraries.
 ```php
 use GuzzleHttp\Client;
 use GuzzleHttp\Psr7\HttpFactory;
-use Mintopia\Flights\Search;
+use Mintopia\Flights\QueryBuilder;
 
 // Our dependencies
 $client = new Client();
 $requestFactory = new Psr7\HttpFactory();
 
 // Create our search client
-$search = new Search($client, $requestFactory);
+$search = new QueryBuilder($client, $requestFactory);
 $search->addSegment(
     from: ['LHR', 'LGW'],
     to: 'JFK',

@@ -1,6 +1,9 @@
 #!/usr/bin/env php
 <?php
+declare(strict_types=1);
+
 include __DIR__ . '/vendor/autoload.php';
+
 if (!class_exists('Symfony\Component\Console\Application')) {
     echo "Symfony console is not installed. Please install dev dependencies";
 }
@@ -9,7 +12,7 @@ use Mintopia\Flights\Commands\CompileCommand;
 use Mintopia\Flights\Commands\SearchCommand;
 use Symfony\Component\Console\Application;
 
-$application = new Application('Flights CLI', '1.0.0');
+$application = new Application('FlightService CLI', '1.0.0');
 $application->addCommands([
     new SearchCommand(),
     new CompileCommand(),

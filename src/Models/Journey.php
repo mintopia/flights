@@ -1,19 +1,29 @@
 <?php
-
-namespace Mintopia\Flights;
+declare(strict_types=1);
+namespace Mintopia\Flights\Models;
 
 use DateInterval;
 use DateTimeInterface;
 use Mintopia\Flights\Exceptions\DecoderException;
+use Mintopia\Flights\Exceptions\ObjectFactoryException;
+use Mintopia\Flights\Interfaces\AirportInterface;
+use Mintopia\Flights\Interfaces\FlightInterface;
+use Mintopia\Flights\Interfaces\JourneyInterface;
 use Mintopia\Flights\Protobuf\FlightSummary;
 use Mintopia\Flights\Protobuf\ItineraryData;
+use Mintopia\Flights\Protobuf\ItinerarySummary;
+use Psr\Container\ContainerExceptionInterface;
+use Psr\Container\NotFoundExceptionInterface;
 
-class Journey
+class Journey extends AbstractModel implements JourneyInterface
 {
     /**
-     * @var array<int, Flight>
+     * @var iterable<int, FlightInterface>
      */
-    public array $flights = [];
+    public iterable $flights = [];
+
+    public ?AirportInterface $from = null;
+    public ?AirportInterface $to = null;
     public int $stops = 0;
     public DateInterval $duration;
     public DateTimeInterface $departure;
@@ -22,21 +32,22 @@ class Journey
     public int $price = 0;
     public string $currency = '';
 
-    public function __construct()
+    public function __clone(): void
     {
-    }
-
-    public function __clone()
-    {
-        $this->flights = array_map(function (Flight $flight) {
-            return clone $flight;
-        }, $this->flights);
+        parent::__clone();
+        $this->cloneIterables([
+            'flights',
+        ]);
+        $this->departure = clone $this->departure;
+        $this->arrival = clone $this->arrival;
     }
 
     /**
      * @param array<int, mixed> $data
      * @return $this
-     * @throws Exceptions\DecoderException
+     * @throws DecoderException
+     * @throws ContainerExceptionInterface
+     * @throws NotFoundExceptionInterface
      */
     public function parse(array $data): self
     {
@@ -48,7 +59,7 @@ class Journey
             throw new DecoderException('Unable to parse flight summary');
         }
         foreach ($data[0][2] as $i => $flightData) {
-            $flight = new Flight($this);
+            $flight = $this->container->get(FlightInterface::class);
             $flight->parse($flightData, $flightSummary[$i]);
             $this->flights[] = $flight;
         }
@@ -58,11 +69,13 @@ class Journey
 
         $this->stops = count($this->flights) - 1;
         $this->departure = $this->flights[0]->departure;
-        $this->arrival = end($this->flights)->arrival;
-        $this->duration = $this->arrival->diff($this->departure);
+        $this->arrival = $this->flights[$this->stops]->arrival;
+
+        $diff = $this->arrival->diff($this->departure);
+        $this->duration = $this->container->get(DateInterval::class, $diff);
 
         // Get price and currency
-        $summary = new Protobuf\ItinerarySummary();
+        $summary = new ItinerarySummary();
         $summary->mergeFromString(base64_decode($data[1][1]));
         $price = $summary->getPrice();
         if ($price === null) {
@@ -95,13 +108,13 @@ class Journey
     {
         $flights = [];
         foreach ($this->flights as $flight) {
-            $itin = new ItineraryData();
-            $itin->setFlightNumber($flight->number);
-            $itin->setFlightCode($flight->airline->code);
-            $itin->setDepartureAirport($flight->from->code);
-            $itin->setArrivalAirport($flight->to->code);
-            $itin->setDepartureDate($flight->departure->format('Y-m-d'));
-            $flights[] = $itin;
+            $itineraryDate = new ItineraryData();
+            $itineraryDate->setFlightNumber($flight->number);
+            $itineraryDate->setFlightCode($flight->airline->code);
+            $itineraryDate->setDepartureAirport($flight->from->code);
+            $itineraryDate->setArrivalAirport($flight->to->code);
+            $itineraryDate->setDepartureDate($flight->departure->format('Y-m-d'));
+            $flights[] = $itineraryDate;
         }
         return $flights;
     }

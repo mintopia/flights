@@ -1,12 +1,14 @@
 <?php
+declare(strict_types=1);
 
 namespace Mintopia\Flights\Commands;
 
+use Carbon\CarbonImmutable;
+use DateTimeInterface;
 use GuzzleHttp\Client;
 use GuzzleHttp\Psr7\HttpFactory;
-use Mintopia\Flights\Enums\SortOrder;
+use Mintopia\Flights\FlightService;
 use Mintopia\Flights\Itinerary;
-use Mintopia\Flights\Search;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Helper\TableSeparator;
 use Symfony\Component\Console\Input\InputArgument;
@@ -23,13 +25,13 @@ class SearchCommand extends Command
     protected function configure(): void
     {
         $this->setName('search');
-        $this->setDescription('Search for One-Way Flights');
+        $this->setDescription('Example for One-Way Flight Search');
 
         $this->addArgument('from', InputArgument::REQUIRED, 'Airports to leave from');
         $this->addArgument('to', InputArgument::REQUIRED, 'Airports to arrive at');
         $this->addArgument('date', InputArgument::OPTIONAL, 'Date', '+1 day');
 
-        $this->addOption('maxstops', 's', InputOption::VALUE_REQUIRED, 'Maximum number of stops allowed', 0);
+        $this->addOption('maxstops', 'm', InputOption::VALUE_REQUIRED, 'Maximum number of stops allowed', 0);
         $this->addOption('airlines', 'a', InputOption::VALUE_OPTIONAL, 'Airlines to search for', '');
     }
 
@@ -37,37 +39,47 @@ class SearchCommand extends Command
     {
         $this->io = new SymfonyStyle($input, $output);
 
-        $this->io->title('One-Way Flight Search');
+        $this->io->title('One-Way Flight QueryBuilder');
 
         // Initialise our HTTP client and Request Factory
         $client = new Client();
         $requestFactory = new HttpFactory();
-
-        // Initialise our logger
         $logger = new ConsoleLogger($output);
 
-        $fromAirports = explode(',', $input->getArgument('from'));
-        $toAirports = explode(',', $input->getArgument('to'));
+        $flightService = new FlightService(logger: $logger)
+            ->setHttpClient($client)
+            ->setRequestFactory($requestFactory)
+            ->bind('iterable', function (iterable $input) {
+                if (!is_array($input)) {
+                    return $input;
+                }
+                return new \ArrayIterator($input);
+            })
+            ->bind(DateTimeInterface::class, CarbonImmutable::class);
 
-        $date = $input->getArgument('date');
+        $fromAirports = new \ArrayIterator(explode(',', $input->getArgument('from')));
+        $toAirports = new \ArrayIterator(explode(',', $input->getArgument('to')));
+
+        $date = new CarbonImmutable($input->getArgument('date'));
         $maxStops = $input->getOption('maxstops');
 
         $airlines = explode(',', $input->getOption('airlines'));
 
         // Returns
-        $search = new Search($client, $requestFactory, $logger);
-        $search->addSegment($fromAirports, $toAirports, $date, $maxStops, $airlines);
-        $trips = $search->getItineraries();
-        $this->renderItineraries($trips);
+        $itineraries = $flightService
+            ->query()
+            ->addSegment($fromAirports, $toAirports, $date, $maxStops, $airlines)
+            ->get();
+        $this->renderItineraries($itineraries);
 
         return self::SUCCESS;
     }
 
     /**
-     * @param array<int, Itinerary> $itineraries
+     * @param iterable<int, Itinerary> $itineraries
      * @return void
      */
-    protected function renderItineraries(array $itineraries): void
+    protected function renderItineraries(iterable $itineraries): void
     {
         $table = $this->io->createTable();
         $table->setHeaders(['Departure', 'From', 'To', 'Arrival', 'Operator', 'Flight', 'Stops', 'Duration', 'Price', 'Notes']);

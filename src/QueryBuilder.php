@@ -1,4 +1,5 @@
 <?php
+declare(strict_types=1);
 
 namespace Mintopia\Flights;
 
@@ -8,29 +9,28 @@ use Mintopia\Flights\Enums\BookingClass;
 use Mintopia\Flights\Enums\PassengerType;
 use Mintopia\Flights\Enums\SortOrder;
 use Mintopia\Flights\Exceptions\DecoderException;
-use Mintopia\Flights\Exceptions\FlightException;
 use Mintopia\Flights\Exceptions\GoogleException;
 use Mintopia\Flights\Exceptions\SearchException;
+use Mintopia\Flights\Interfaces\ItineraryInterface;
+use Mintopia\Flights\Interfaces\JourneyInterface;
+use Mintopia\Flights\Interfaces\QueryBuilderInterface;
+use Mintopia\Flights\Models\Segment;
 use Mintopia\Flights\Protobuf\Info;
 use Mintopia\Flights\Protobuf\ItineraryData;
 use Mintopia\Flights\Protobuf\Seat;
 use Mintopia\Flights\Protobuf\Trip;
-use Psr\Http\Client\ClientInterface;
 use Psr\Http\Message\RequestFactoryInterface;
-use Psr\Http\Message\RequestInterface;
-use Psr\Log\LoggerAwareInterface;
 use Psr\Log\LoggerInterface;
-use Psr\Log\NullLogger;
 
-class Search implements LoggerAwareInterface
+class QueryBuilder implements QueryBuilderInterface
 {
-    public string $userAgent = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:145.0) Gecko/20100101 Firefox/145.0';
+    protected string $language;
+    protected string $currency;
+
     /**
      * @var array<int, PassengerType>
      */
     protected array $passengers = [];
-    public string $currency = 'GBP';
-    public string $language = 'en-GB';
     public SortOrder $sortOrder = SortOrder::Price;
     public BookingClass $bookingClass = BookingClass::Economy;
 
@@ -40,85 +40,106 @@ class Search implements LoggerAwareInterface
     public array $segments = [];
 
     protected LoggerInterface $log;
+    protected RequestFactoryInterface $requestFactory;
+    protected FlightService $flightService;
 
-    public function __construct(protected ClientInterface $httpClient, protected RequestFactoryInterface $requestFactory, ?LoggerInterface $logger = null)
+    public function __construct(protected Container $container)
     {
-        if ($logger === null) {
-            $logger = new NullLogger();
-        }
-        $this->log = $logger;
-        if (!class_exists('Google\Protobuf\Internal\Message')) {
-            $this->log->error('Unable to find Google\Protobuf\Internal\Message class');
-            throw new FlightException('Please install the ext-protobuf extension or google/protobuf library');
-        }
+        $this->log = $this->container->get(LoggerInterface::class);
+        $this->requestFactory = $this->container->get(RequestFactoryInterface::class);
+        $this->flightService = $this->container->get(FlightService::class);
     }
 
     public function addPassenger(PassengerType $passenger): self
     {
-        $this->passengers[] = $passenger;
-        return $this;
+        $clone = clone $this;
+        $clone->passengers[] = $passenger;
+        return $clone;
     }
 
     /**
      * @param array<PassengerType> $passengers
-     * @return $this
+     * @return self
      */
     public function setPassengers(array $passengers): self
     {
-        $this->passengers = $passengers;
-        return $this;
+        $clone = clone $this;
+        $clone->passengers = $passengers;
+        return $clone;
     }
 
     public function clearPassengers(): self
     {
-        $this->passengers = [];
-        return $this;
+        $clone = clone $this;
+        $clone->passengers = [];
+        return $clone;
     }
 
     public function setBookingClass(BookingClass $bookingClass): self
     {
-        $this->bookingClass = $bookingClass;
-        return $this;
+        $clone = clone $this;
+        $clone->bookingClass = $bookingClass;
+        return $clone;
     }
 
     public function setSortOrder(SortOrder $sortOrder): self
     {
-        $this->sortOrder = $sortOrder;
-        return $this;
+        $clone = clone $this;
+        $clone->sortOrder = $sortOrder;
+        return $clone;
     }
 
     public function setLanguage(string $language): self
     {
-        $this->language = $language;
-        return $this;
+        $clone = clone $this;
+        $clone->language = $language;
+        return $clone;
     }
 
     public function setCurrency(string $currency): self
     {
-        $this->currency = $currency;
-        return $this;
+        $clone = clone $this;
+        $clone->currency = $currency;
+        return $clone;
     }
 
     /**
-     * @param string|array<int, string> $from
-     * @param string|array<int, string> $to
+     * @param string|iterable<int, string> $from
+     * @param string|iterable<int, string> $to
      * @param string|DateTimeInterface|null $date
      * @param int $maxStops
-     * @param array<int, string>|null $airlines
-     * @return $this
+     * @param string|iterable<int, string>|null $airlines
+     * @return self
      * @throws DateMalformedStringException
      */
-    public function addSegment(string|array $from, string|array $to, string|DateTimeInterface|null $date = null, int $maxStops = 0, null|string|array $airlines = []): self
+    public function addSegment(string|iterable $from, string|iterable $to, string|DateTimeInterface|null $date = null, int $maxStops = 0, string|iterable $airlines = []): self
     {
-        $journey = new Segment(...func_get_args());
-        $this->segments[] = $journey;
-        return $this;
+        $from = $this->normaliseIterable($from);
+        $to = $this->normaliseIterable($to);
+        $airlines = $this->normaliseIterable($airlines);
+        $segment = new Segment($this->container, $from, $to, $date, $maxStops, $airlines);
+        $clone = clone $this;
+        $clone->segments[] = $segment;
+        return $clone;
+    }
+
+    protected function normaliseIterable(mixed $iterable): array
+    {
+        if (is_array($iterable)) {
+            return array_filter($iterable);
+        } elseif(is_iterable($iterable)) {
+            $iterable = iterator_to_array($iterable);
+        } else {
+            $iterable = [$iterable];
+        }
+        return array_filter($iterable);
     }
 
     public function clearSegments(): self
     {
-        $this->segments = [];
-        return $this;
+        $clone = clone $this;
+        $clone->segments = [];
+        return $clone;
     }
 
     protected function getSortOrder(): string
@@ -132,11 +153,11 @@ class Search implements LoggerAwareInterface
     }
 
     /**
-     * @param array<int, ItineraryData>|null $itineraryData
+     * @param iterable<int, ItineraryData>|null $itineraryData
      * @return string
      * @throws SearchException
      */
-    protected function encode(?array $itineraryData = null): string
+    protected function encode(?iterable $itineraryData = null): string
     {
         $segmentCount = count($this->segments);
         if ($segmentCount === 0) {
@@ -183,9 +204,9 @@ class Search implements LoggerAwareInterface
     }
 
     /**
-     * @return array<int, Itinerary>
+     * @return iterable<int, ItineraryInterface>
      */
-    public function getItineraries(): array
+    public function get(): iterable
     {
         $itineraries = [];
         $this->log->debug("[Segment:1] Fetching journeys");
@@ -194,7 +215,7 @@ class Search implements LoggerAwareInterface
         $journeys = $this->getJourneys();
         $this->log->debug("[Segment:1] Found " . count($journeys) . " journeys");
         foreach ($journeys as $journey) {
-            $itinerary = new Itinerary();
+            $itinerary = $this->container->get(ItineraryInterface::class);
             $itinerary->addJourney($journey);
             $itineraries[] = $itinerary;
         }
@@ -224,10 +245,10 @@ class Search implements LoggerAwareInterface
             $this->log->debug("{$prefix} " . count($itineraries) . " trips");
         }
 
-        array_filter($itineraries, function (Itinerary $itinerary) use ($segmentCount) {
+        array_filter($itineraries, function (ItineraryInterface $itinerary) use ($segmentCount) {
             return count($itinerary->journeys) === $segmentCount;
         });
-        usort($itineraries, function (Itinerary $itinerary1, Itinerary $itinerary2) {
+        usort($itineraries, function (ItineraryInterface $itinerary1, ItineraryInterface $itinerary2) {
             switch ($this->sortOrder) {
                 case SortOrder::DepartureTime:
                     return $itinerary1->outbound->departure->getTimestamp() <=> $itinerary2->outbound->departure->getTimestamp();
@@ -242,18 +263,17 @@ class Search implements LoggerAwareInterface
                     return $itinerary1->price <=> $itinerary2->price;
             }
         });
-        return $itineraries;
+        return $this->container->get('iterable', $itineraries);
     }
 
     /**
-     * @param array<int, mixed> $itineraryData
-     * @return array<int, Journey>
-     * @throws GoogleException
-     * @throws SearchException
+     * @param iterable<int, mixed> $itineraryData
+     * @return iterable<int, JourneyInterface>
+     * @throws GoogleException|SearchException|DecoderException
      */
-    protected function getJourneys(array $itineraryData = []): array
+    protected function getJourneys(iterable $itineraryData = []): iterable
     {
-        $request = $this->requestFactory
+        $request = $this->container->get(RequestFactoryInterface::class)
             ->createRequest('GET', 'https://www.google.com/travel/flights');
 
         $uri = $request->getUri()->withQuery(http_build_query([
@@ -264,14 +284,14 @@ class Search implements LoggerAwareInterface
         ]));
         $this->log->debug("GET {$uri}");
         $request = $request->withUri($uri);
-        $response = $this->makeRequest($request);
+        $response = $this->flightService->makeRequest($request);
 
         return $this->parseResponse($response);
     }
 
     /**
      * @param string $response
-     * @return array<int, mixed>
+     * @return iterable<int, mixed>
      * @throws DecoderException
      * @throws GoogleException
      */
@@ -284,23 +304,23 @@ class Search implements LoggerAwareInterface
     }
 
     /**
-     * @param array<int, mixed> $data
-     * @return Journey
+     * @param iterable<int, mixed> $data
+     * @return JourneyInterface
      * @throws DecoderException
      */
-    protected function parseJourney(array $data): Journey
+    protected function parseJourney(array $data): JourneyInterface
     {
-        $journey = new Journey();
-        return $journey->parse($data);
+        return $this->container->get(JourneyInterface::class)
+            ->parse($data);
     }
 
     /**
      * @param string $response
-     * @return array<int, mixed>
+     * @return iterable<int, mixed>
      * @throws DecoderException
      * @throws GoogleException
      */
-    protected function getDataFromResponse(string $response): array
+    protected function getDataFromResponse(string $response): iterable
     {
         $this->log->debug("Attempting to find script tag in Google response");
         $scriptStart = strpos($response, 'script class="ds:1"');
@@ -330,40 +350,5 @@ class Search implements LoggerAwareInterface
         }
         $this->log->debug("Found JSON data at {$start}");
         return $json;
-    }
-
-    protected function makeRequest(RequestInterface $request): string
-    {
-        $request = $request
-            ->withHeader('User-Agent', $this->userAgent)
-            ->withHeader('Cookie', $this->getCookies());
-
-        $response = $this->httpClient->sendRequest($request);
-        if ($response->getStatusCode() !== 200) {
-            $ex = new GoogleException($response->getReasonPhrase(), $response->getStatusCode());
-            $ex->request = $request;
-            $ex->response = $response;
-            throw $ex;
-        }
-        return $response->getBody()->getContents();
-    }
-
-    protected function getCookies(): string
-    {
-        $cookies = [
-            'SOCS' => 'CAISNQgjEitib3FfaWRlbnRpdHlmcm9udGVuZHVpc2VydmVyXzIwMjUwNDIzLjA0X3AwGgJ1ayACGgYIgP6lwAY',
-            'OTZ' => '8053484_44_48_123900_44_436380',
-            'NID' => '8053484_44_48_123900_44_436380',
-        ];
-        $output = '';
-        foreach ($cookies as $name => $value) {
-            $output .= "{$name}={$value}; ";
-        }
-        return trim($output);
-    }
-
-    public function setLogger(LoggerInterface $logger): void
-    {
-        $this->log = $logger;
     }
 }

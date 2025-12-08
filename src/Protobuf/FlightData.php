@@ -5,7 +5,6 @@
 
 namespace Mintopia\Flights\Protobuf;
 
-use Google\Protobuf\Internal\GPBType;
 use Google\Protobuf\Internal\GPBUtil;
 use Google\Protobuf\RepeatedField;
 
