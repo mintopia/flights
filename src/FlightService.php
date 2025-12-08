@@ -199,5 +199,6 @@ class FlightService implements LoggerAwareInterface
     public function unbind(string $id): self
     {
         $this->container->unbind($id);
+        return $this;
     }
 }

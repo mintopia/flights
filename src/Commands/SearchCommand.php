@@ -8,7 +8,7 @@ use DateTimeInterface;
 use GuzzleHttp\Client;
 use GuzzleHttp\Psr7\HttpFactory;
 use Mintopia\Flights\FlightService;
-use Mintopia\Flights\Itinerary;
+use Mintopia\Flights\Models\Itinerary;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Helper\TableSeparator;
 use Symfony\Component\Console\Input\InputArgument;

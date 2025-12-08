@@ -7,7 +7,6 @@ use DateTimeImmutable;
 use DateTimeInterface;
 use Mintopia\Flights\Exceptions\ContainerNotFoundException;
 use Mintopia\Flights\Exceptions\FlightContainerException;
-use Mintopia\Flights\Exceptions\ObjectFactoryException;
 use Mintopia\Flights\Interfaces\AirlineInterface;
 use Mintopia\Flights\Interfaces\AirportInterface;
 use Mintopia\Flights\Interfaces\FlightInterface;

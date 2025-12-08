@@ -5,7 +5,6 @@ namespace Mintopia\Flights\Models;
 use DateInterval;
 use DateTimeInterface;
 use Mintopia\Flights\Exceptions\DecoderException;
-use Mintopia\Flights\Exceptions\ObjectFactoryException;
 use Mintopia\Flights\Interfaces\AirportInterface;
 use Mintopia\Flights\Interfaces\FlightInterface;
 use Mintopia\Flights\Interfaces\JourneyInterface;
