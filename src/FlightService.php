@@ -51,6 +51,11 @@ class FlightService implements LoggerAwareInterface
         ];
     }
 
+    public function __wakeup(): void
+    {
+        $this->log = new NullLogger();
+    }
+
     public function __construct(
         protected ?RequestFactoryInterface $requestFactory = null,
         protected ?ClientInterface $httpClient = null,
