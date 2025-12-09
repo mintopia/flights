@@ -16,10 +16,13 @@ use Psr\Log\NullLogger;
 
 class FlightService implements LoggerAwareInterface
 {
-    const DEFAULT_USER_AGENT = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:145.0) Gecko/20100101 Firefox/145.0';
-    const DEFAULT_CURRENCY = 'GBP';
-    const DEFAULT_LANGUAGE = 'en-GB';
-    const DEFAULT_COOKIES = [
+    const string DEFAULT_USER_AGENT = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:145.0) Gecko/20100101 Firefox/145.0';
+    const string DEFAULT_CURRENCY = 'GBP';
+    const string DEFAULT_LANGUAGE = 'en-GB';
+    /**
+     * @const string[] DEFAULT_COOKIES
+     */
+    const array DEFAULT_COOKIES = [
             'SOCS' => 'CAISNQgjEitib3FfaWRlbnRpdHlmcm9udGVuZHVpc2VydmVyXzIwMjUwNDIzLjA0X3AwGgJ1ayACGgYIgP6lwAY',
             'OTZ' => '8053484_44_48_123900_44_436380',
             'NID' => '8053484_44_48_123900_44_436380',
@@ -34,6 +37,19 @@ class FlightService implements LoggerAwareInterface
     protected ?string $language = null;
     protected ?string $userAgent = null;
     public LoggerInterface $log;
+
+    /**
+     * @return string[]
+     */
+    public function __serialize(): array
+    {
+        return [
+            'cookies',
+            'currency',
+            'language',
+            'userAgent',
+        ];
+    }
 
     public function __construct(
         protected ?RequestFactoryInterface $requestFactory = null,
