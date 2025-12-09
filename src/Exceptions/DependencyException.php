@@ -6,6 +6,6 @@ namespace Mintopia\Flights\Exceptions;
 
 use Exception;
 
-class DecoderException extends Exception
+class DependencyException extends Exception
 {
 }

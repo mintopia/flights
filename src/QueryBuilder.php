@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace Mintopia\Flights;
@@ -11,43 +12,33 @@ use Mintopia\Flights\Enums\SortOrder;
 use Mintopia\Flights\Exceptions\DecoderException;
 use Mintopia\Flights\Exceptions\GoogleException;
 use Mintopia\Flights\Exceptions\SearchException;
-use Mintopia\Flights\Interfaces\ItineraryInterface;
-use Mintopia\Flights\Interfaces\JourneyInterface;
-use Mintopia\Flights\Interfaces\QueryBuilderInterface;
+use Mintopia\Flights\Models\Itinerary;
+use Mintopia\Flights\Models\Journey;
 use Mintopia\Flights\Models\Segment;
 use Mintopia\Flights\Protobuf\Info;
 use Mintopia\Flights\Protobuf\ItineraryData;
 use Mintopia\Flights\Protobuf\Seat;
 use Mintopia\Flights\Protobuf\Trip;
-use Psr\Http\Message\RequestFactoryInterface;
-use Psr\Log\LoggerInterface;
 
-class QueryBuilder implements QueryBuilderInterface
+class QueryBuilder
 {
     protected string $language;
     protected string $currency;
 
     /**
-     * @var array<int, PassengerType>
+     * @var PassengerType[]
      */
     protected array $passengers = [];
     public SortOrder $sortOrder = SortOrder::Price;
     public BookingClass $bookingClass = BookingClass::Economy;
 
     /**
-     * @var array <int, Segment>
+     * @var Segment[]
      */
-    public array $segments = [];
+    public array $segments;
 
-    protected LoggerInterface $log;
-    protected RequestFactoryInterface $requestFactory;
-    protected FlightService $flightService;
-
-    public function __construct(protected Container $container)
+    public function __construct(protected FlightService $flightService)
     {
-        $this->log = $this->container->get(LoggerInterface::class);
-        $this->requestFactory = $this->container->get(RequestFactoryInterface::class);
-        $this->flightService = $this->container->get(FlightService::class);
     }
 
     public function addPassenger(PassengerType $passenger): self
@@ -58,7 +49,7 @@ class QueryBuilder implements QueryBuilderInterface
     }
 
     /**
-     * @param array<PassengerType> $passengers
+     * @param PassengerType[] $passengers
      * @return self
      */
     public function setPassengers(array $passengers): self
@@ -104,35 +95,36 @@ class QueryBuilder implements QueryBuilderInterface
     }
 
     /**
-     * @param string|iterable<int, string> $from
-     * @param string|iterable<int, string> $to
+     * @param string|string[] $from
+     * @param string|string[] $to
      * @param string|DateTimeInterface|null $date
      * @param int $maxStops
-     * @param string|iterable<int, string>|null $airlines
+     * @param string|string[] $airlines
      * @return self
      * @throws DateMalformedStringException
      */
-    public function addSegment(string|iterable $from, string|iterable $to, string|DateTimeInterface|null $date = null, int $maxStops = 0, string|iterable $airlines = []): self
+    public function addSegment(string|array $from, string|array $to, string|DateTimeInterface|null $date = null, int $maxStops = 0, string|array $airlines = []): self
     {
-        $from = $this->normaliseIterable($from);
-        $to = $this->normaliseIterable($to);
-        $airlines = $this->normaliseIterable($airlines);
-        $segment = new Segment($this->container, $from, $to, $date, $maxStops, $airlines);
+        $from = $this->normaliseArray($from);
+        $to = $this->normaliseArray($to);
+        $airlines = $this->normaliseArray($airlines);
+
+        $segment = new Segment($from, $to, $date, $maxStops, $airlines);
         $clone = clone $this;
         $clone->segments[] = $segment;
         return $clone;
     }
 
-    protected function normaliseIterable(mixed $iterable): array
+    /**
+     * @param mixed $array
+     * @return string[]
+     */
+    protected function normaliseArray(mixed $array): array
     {
-        if (is_array($iterable)) {
-            return array_filter($iterable);
-        } elseif(is_iterable($iterable)) {
-            $iterable = iterator_to_array($iterable);
-        } else {
-            $iterable = [$iterable];
+        if (is_string($array)) {
+            $array = explode(',', $array);
         }
-        return array_filter($iterable);
+        return array_filter($array);
     }
 
     public function clearSegments(): self
@@ -153,11 +145,11 @@ class QueryBuilder implements QueryBuilderInterface
     }
 
     /**
-     * @param iterable<int, ItineraryData>|null $itineraryData
+     * @param ItineraryData[]|null $itineraryData
      * @return string
      * @throws SearchException
      */
-    protected function encode(?iterable $itineraryData = null): string
+    protected function encode(?array $itineraryData = null): string
     {
         $segmentCount = count($this->segments);
         if ($segmentCount === 0) {
@@ -176,8 +168,7 @@ class QueryBuilder implements QueryBuilderInterface
         }
 
         $tripType = match (true) {
-            $segmentCount === 1 => Trip::ONE_WAY,
-            $segmentCount === 2 => Trip::ROUND_TRIP,
+            $segmentCount == 1 => Trip::ONE_WAY,
             true => Trip::MULTI_CITY,
         };
 
@@ -204,18 +195,19 @@ class QueryBuilder implements QueryBuilderInterface
     }
 
     /**
-     * @return iterable<int, ItineraryInterface>
+     * @return Itinerary[]
      */
-    public function get(): iterable
+    public function get(): array
     {
+        /** @var Itinerary[] $itineraries */
         $itineraries = [];
-        $this->log->debug("[Segment:1] Fetching journeys");
+        $this->flightService->log->debug("[Segment:1] Fetching journeys");
 
         // Get our first journeys
         $journeys = $this->getJourneys();
-        $this->log->debug("[Segment:1] Found " . count($journeys) . " journeys");
+        $this->flightService->log->debug("[Segment:1] Found " . count($journeys) . " journeys");
         foreach ($journeys as $journey) {
-            $itinerary = $this->container->get(ItineraryInterface::class);
+            $itinerary = new Itinerary($this->flightService);
             $itinerary->addJourney($journey);
             $itineraries[] = $itinerary;
         }
@@ -224,15 +216,15 @@ class QueryBuilder implements QueryBuilderInterface
         for ($i = 1; $i < count($this->segments); $i++) {
             $newItineraries = [];
             $prefix = '[Segment:' . $i + 1 . ']';
-            $this->log->debug("{$prefix} Fetching journeys");
+            $this->flightService->log->debug("{$prefix} Fetching journeys");
             foreach ($itineraries as $index => $itinerary) {
                 $prefix = '[Segment:' . $i + 1 . '][Itinerary:' . $index . ']';
                 $journeys = $this->getJourneys($itinerary->getItineraryData());
                 if (count($journeys) === 0) {
-                    $this->log->debug("{$prefix} No journeys found, removing this itinerary as it can't be completed");
+                    $this->flightService->log->debug("{$prefix} No journeys found, removing this itinerary as it can't be completed");
                     continue;
                 }
-                $this->log->debug("{$prefix} Found " . count($journeys) . " journeys");
+                $this->flightService->log->debug("{$prefix} Found " . count($journeys) . " journeys");
                 foreach ($journeys as $journey) {
                     // We found a journey, clone our current trip, add it to our list for the next round.
                     $clone = clone $itinerary;
@@ -242,13 +234,13 @@ class QueryBuilder implements QueryBuilderInterface
             }
             $itineraries = $newItineraries;
 
-            $this->log->debug("{$prefix} " . count($itineraries) . " trips");
+            $this->flightService->log->debug("{$prefix} " . count($itineraries) . " trips");
         }
 
-        array_filter($itineraries, function (ItineraryInterface $itinerary) use ($segmentCount) {
+        array_filter($itineraries, function (Itinerary $itinerary) use ($segmentCount) {
             return count($itinerary->journeys) === $segmentCount;
         });
-        usort($itineraries, function (ItineraryInterface $itinerary1, ItineraryInterface $itinerary2) {
+        usort($itineraries, function (Itinerary $itinerary1, Itinerary $itinerary2) {
             switch ($this->sortOrder) {
                 case SortOrder::DepartureTime:
                     return $itinerary1->outbound->departure->getTimestamp() <=> $itinerary2->outbound->departure->getTimestamp();
@@ -263,18 +255,16 @@ class QueryBuilder implements QueryBuilderInterface
                     return $itinerary1->price <=> $itinerary2->price;
             }
         });
-        return $this->container->get('iterable', $itineraries);
+        return $itineraries;
     }
 
     /**
-     * @param iterable<int, mixed> $itineraryData
-     * @return iterable<int, JourneyInterface>
-     * @throws GoogleException|SearchException|DecoderException
+     * @param mixed[] $itineraryData
+     * @return Journey[]
      */
-    protected function getJourneys(iterable $itineraryData = []): iterable
+    protected function getJourneys(array $itineraryData = []): array
     {
-        $request = $this->container->get(RequestFactoryInterface::class)
-            ->createRequest('GET', 'https://www.google.com/travel/flights');
+        $request = $this->flightService->createRequest('GET', 'https://www.google.com/travel/flights');
 
         $uri = $request->getUri()->withQuery(http_build_query([
             'curr' => $this->currency,
@@ -282,7 +272,7 @@ class QueryBuilder implements QueryBuilderInterface
             'tfu' => $this->getSortOrder(),
             'tfs' => $this->encode($itineraryData),
         ]));
-        $this->log->debug("GET {$uri}");
+        $this->flightService->log->debug("GET {$uri}");
         $request = $request->withUri($uri);
         $response = $this->flightService->makeRequest($request);
 
@@ -291,7 +281,7 @@ class QueryBuilder implements QueryBuilderInterface
 
     /**
      * @param string $response
-     * @return iterable<int, mixed>
+     * @return array<int, mixed>
      * @throws DecoderException
      * @throws GoogleException
      */
@@ -304,25 +294,24 @@ class QueryBuilder implements QueryBuilderInterface
     }
 
     /**
-     * @param iterable<int, mixed> $data
-     * @return JourneyInterface
+     * @param array<int, mixed> $data
+     * @return Journey
      * @throws DecoderException
      */
-    protected function parseJourney(array $data): JourneyInterface
+    protected function parseJourney(array $data): Journey
     {
-        return $this->container->get(JourneyInterface::class)
-            ->parse($data);
+        return new Journey($this->flightService)->parse($data);
     }
 
     /**
      * @param string $response
-     * @return iterable<int, mixed>
+     * @return array<int, mixed>
      * @throws DecoderException
      * @throws GoogleException
      */
-    protected function getDataFromResponse(string $response): iterable
+    protected function getDataFromResponse(string $response): array
     {
-        $this->log->debug("Attempting to find script tag in Google response");
+        $this->flightService->log->debug("Attempting to find script tag in Google response");
         $scriptStart = strpos($response, 'script class="ds:1"');
         if ($scriptStart === false) {
             throw new GoogleException("Unable to find script tag in Google response");
@@ -332,23 +321,23 @@ class QueryBuilder implements QueryBuilderInterface
             throw new GoogleException("Unable to find data start in Google response");
         }
         $start += 5;
-        $this->log->debug("Found data start at {$start}");
+        $this->flightService->log->debug("Found data start at {$start}");
         $end = strpos($response, '], sideChannel', $start);
         if ($end === false) {
             throw new GoogleException("Unable to find data end at Google response");
         }
         $end += 1;
-        $this->log->debug("Found data end at {$end}");
+        $this->flightService->log->debug("Found data end at {$end}");
         $body = substr($response, $start, $end - $start);
         $json = json_decode($body);
         if ($json === false) {
             throw new DecoderException("Failed to parse JSON response at {$start}: " . json_last_error_msg());
         }
         if (!is_array($json)) {
-            $this->log->debug("JSON response did not decode to an array at {$start}: " . json_last_error_msg());
+            $this->flightService->log->debug("JSON response did not decode to an array at {$start}: " . json_last_error_msg());
             throw new DecoderException("JSON response did not decode to an array at {$start}: " . json_last_error_msg());
         }
-        $this->log->debug("Found JSON data at {$start}");
+        $this->flightService->log->debug("Found JSON data at {$start}");
         return $json;
     }
 }

@@ -1,9 +1,0 @@
-<?php
-declare(strict_types=1);
-
-namespace Mintopia\Flights\Interfaces;
-
-interface ItineraryInterface extends AbstractModelInterface
-{
-    
-}

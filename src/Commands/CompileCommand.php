@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace Mintopia\Flights\Commands;
@@ -48,7 +49,7 @@ class CompileCommand extends Command
         $src = '.protobufs/Mintopia/Flights/Protobuf/';
         $dst = 'src/Protobuf/';
         $this->io->writeln("Moving compiled Protobufs from <fg=cyan>{$src}</> to <fg=cyan>{$dst}</>");
-        passthru("cp -Rf ./{$src}* ./{$dst}", $resultCode);
+        passthru("mv ./{$src}* ./{$dst}", $resultCode);
         if ($resultCode !== 0) {
             $this->io->error('Unable to move compiled Protobuf files');
             return false;

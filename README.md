@@ -32,19 +32,19 @@ Airlines are represented by their 2-digit IATA codes, eg. `BA` for British Airwa
 
 ## Usage
 
-The main entrypoint is the `\Mintopia\Flights\Search` class. From here you can configure your search parameters and then
-fetch all trips that meet those parameters.
+The main entrypoint is the `\Mintopia\Flights\FlightService` class. From here you can configure your search parameters
+and then fetch all trips that meet those parameters.
 
 ### Instantiating the Library
 
 The library requires a PSR 18 compatible HTTP client and a Request Factory. A library like Guzzle is able to provide
-this. It can be passed in to the constructor or a servce container can provide these.
+this. It can be passed in to the constructor or a service container can provide these.
 
 ```php
 $client = new GuzzleHttp\Client();
 $requestFactory = new GuzzleHttp\Psr7\HttpFactory();
 
-$search = new Mintopia\Flights\QueryBuilder($client, $requestFactory);
+$search = new Mintopia\Flights\FlightService(requestFactory: $requestFactory, httpClient: $client);
 ```
 
 You can also specify a PSR-3 compatible logging interface to either the constructor or via the `setLogger` method. If
@@ -68,70 +68,43 @@ $log = new Logger('flights');
 $log->pushHandler(new StreamHandler('flights.log', Level::Debug));
 
 // Now create the flight search
-use Mintopia\Flights\QueryBuilder;
-$search = new QueryBuilder($client, $requestFactory, $log);
-```
-
-Finally, if you're using Laravel, then you can just type hint the search client in your controller actions or
-constructors.
-
-```php
-namespace App\Http\Controllers;
-
-use Illuminate\Http\Response;
-use Mintopia\Flights\QueryBuilder;
-
-class FlightController extends Controller
-{
-  public function index(QueryBuilder $search): Response
-  {
-    // Use the search client
-    $itineraries = $client->addSegment('LHR', 'JFK')->getItineraries();
-  }
-}
-```
-You can also just use `$app->make();` or the `make()` helper function.
-
-```php
-<?php
-// These all do the same thing
-$search = $app->make(Mintopia\Flights\QueryBuilder::class);
-$search = App::make(Mintopia\Flights\QueryBuilder::class);
-$search = make(Mintopia\Flights\QueryBuilder::class);
+use Mintopia\Flights\FlightService;
+$search = new QueryBuilder(requestFactory: $requestFactory, httpClient: $client, logger: $log);
 ```
 
 ### Searching for flights
 
-Once you have a client, you can add segments to your search and then when done call `getItineraries()`. The library
-will then use Google Flights to fetch possible itineraries.
+Once you have a client, you can start a query and add segments to it, then when done call `getItineraries()`. The
+library will then use Google Flights to fetch possible itineraries.
+
+The query builder is immutable, so it will return new instance of itself on every mutable method call.
 
 ```php
 use GuzzleHttp\Client;
 use GuzzleHttp\Psr7\HttpFactory;
-use Mintopia\Flights\QueryBuilder;
+use Mintopia\Flights\FlightService;
 
 // Our dependencies
 $client = new Client();
 $requestFactory = new Psr7\HttpFactory();
 
 // Create our search client
-$search = new QueryBuilder($client, $requestFactory);
-$search->addSegment(
+$flightService = new FlightService($requestFactory, $client);
+$itineraries = $flightService->query()->addSegment(
     from: ['LHR', 'LGW'],
     to: 'JFK',
     date: '2025-12-10',
     maxStops: 0,
     airlines: ['BA', 'VS']
-);
-$itineraries = $search->getItineraries();
+)->get();
 ```
 
 This would perform a search for all flights on 10th December 2025 from London Heathrow and London Gatwick, to New
 York's JFK with no stops and limited to Virgin Atlantic.
 
 ```php
-$search = new Search($client, $requestFactory);
-$search->addSegment('LHR', 'FAO');
+$flightService = new FlightService($requestFactory, $client);
+$flightService->query()->addSegment('LHR', 'FAO')->get();
 ```
 
 You can leave out most of the options, it'll default to tomorrow for the date with 0 stops and any airline. Airports can
@@ -140,10 +113,12 @@ be specified either as an array for multiple or the single airport code.
 To search for a return flight, add another segment:
 
 ```php
-$search = new Search($client, $requestFactory)
+$flightService = new FlightService($requestFactory, $client)
+$itineraries = $flightService
+    ->query()
     ->addSegment('LGW', 'FAO', '+1 day')
     ->addSegment('FAO', 'LGW', '+3 days')
-    ->getItineraries();
+    ->get();
 ```
 
 By default it searches for flights for one passenger, but you can add more:
@@ -151,23 +126,27 @@ By default it searches for flights for one passenger, but you can add more:
 ```php
 use Mintopia\Flights\Enums\PassengerType;
 
-$search = new Search($client, $requestFactory)
+$flightService = new FlightService($requestFactory, $client)
+$itineraries = $flightService
+    ->query()
     ->addSegment('LGW', 'FAO')
     ->addPassenger(PassengerType::Adult)
-    ->getItineraries();
+    ->get();
 ```
 
 You can also set passengers in a single call:
 
 ```php
-$search = new Search($client, $requestFactory)
+$flightService = new FlightService($requestFactory, $client)
+$itineraries = $flightService
+    ->query()
     ->addSegment('LGW', 'FAO')
     ->setPassengers([
         PassengerType::Adult,
         PassengerType::Adult,
         PassengderType::Child,
     ])
-    ->getItineraries();
+    ->get();
 ```
 
 If you want to search for a different class, eg. Business or Premium Economy, you can also specify it:
@@ -175,10 +154,12 @@ If you want to search for a different class, eg. Business or Premium Economy, yo
 ```php
 use Mintopia\Flights\Enums\BookingClass;
 
-$search = new Search($client, $requestFactory)
+$flightService = new FlightService($requestFactory, $client)
+$itineraries = $flightService
+    ->query()
     ->addSegment('LGW', 'FAO')
     ->setBookingClass(BookingClass::Business)
-    ->getItineraries();
+    ->get();
 ```
 
 Finally you can sort the results by adding the `sortOrder()` call to the search.
@@ -186,10 +167,12 @@ Finally you can sort the results by adding the `sortOrder()` call to the search.
 ```php
 use Mintopia\Flights\Enums\SortOrder;
 
-$search = new Search($client, $requestFactory)
+$flightService = new FlightService($requestFactory, $client)
+$itineraries = $flightService
+    ->query()
     ->addSegment('LGW', 'FAO')
     ->sortOrder(SortOrder::Price)
-    ->getItineraries();
+    ->get();
 ```
 
 ## Contributing
@@ -234,6 +217,7 @@ copied to the correct location.
 - More features, plane type, WiFi, seat pitch, etc.
 - Unit tests, coverage and mutation testing
 - Full documentation
+- Possibly an adapter to make it nice to use in Laravel with a Servie Provider, Carbon for dates and Collections
 
 ## Thanks
 

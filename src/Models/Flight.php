@@ -1,21 +1,21 @@
 <?php
+
 declare(strict_types=1);
+
 namespace Mintopia\Flights\Models;
 
 use DateInterval;
+use DateTimeImmutable;
 use DateTimeInterface;
-use Mintopia\Flights\Interfaces\AirlineInterface;
-use Mintopia\Flights\Interfaces\AirportInterface;
-use Mintopia\Flights\Interfaces\FlightInterface;
 use Mintopia\Flights\Protobuf\FlightSummary\Itinerary\Sector\Flight as ProtoFlight;
 
-class Flight extends AbstractModel implements FlightInterface
+class Flight extends AbstractModel
 {
-    public AirportInterface $from;
-    public AirportInterface $to;
+    public Airport $from;
+    public Airport $to;
 
     public string $operator;
-    public AirlineInterface $airline;
+    public Airline $airline;
     public string $code;
     public string $number;
 
@@ -24,26 +24,25 @@ class Flight extends AbstractModel implements FlightInterface
     public DateInterval $duration;
 
     /**
-     * @param array<int, mixed> $data
+     * @param mixed[] $data
      * @param ProtoFlight $flight
      * @return $this
      */
     public function parse(array $data, ProtoFlight $flight): self
     {
-        $this->from = $this->container->get(AirportInterface::class, $data[3], $data[4]);
-        $this->to = $this->container->get(AirportInterface::class, $data[6], $data[5]);
-        $this->airline = $this->container->get(AirlineInterface::class, $data[22][0], $data[22][3]);
+        $this->from = new Airport($this->flightService, $data[3], $data[4]);
+        $this->to = new Airport($this->flightService, $data[6], $data[5]);
+        $this->airline = new Airline($this->flightService, $data[22][0], $data[22][3]);
         $this->number = $data[22][1];
         $this->code = $data[22][0] . $data[22][1];
 
-        $this->departure = $this->container->get(DateTimeInterface::class, $flight->getDeparture());
-        $this->arrival = $this->container->get(DateTimeInterface::class, $flight->getArrival());
+        $this->departure = new DateTimeImmutable($flight->getDeparture());
+        $this->arrival = new DateTimeImmutable($flight->getArrival());
 
-        $diff = $this->arrival->diff($this->departure);
-        $this->duration = $this->container->get(DateInterval::class, $diff);
+        $this->duration = $this->arrival->diff($this->departure);
 
-        $this->operator = $this->airline->name;
-        if ($data[2]) {
+        $this->operator = $this->airline->name ?? '';
+        if ($data[2] !== null) {
             $this->operator = $data[2];
         }
         return $this;

@@ -1,40 +1,46 @@
 <?php
+
 declare(strict_types=1);
+
 namespace Mintopia\Flights\Models;
 
-use Mintopia\Flights\Container;
-use Mintopia\Flights\Interfaces\AbstractModelInterface;
+use Mintopia\Flights\FlightService;
+use ReflectionClass;
 
-abstract class AbstractModel {
-
-    public function __construct(protected Container $container)
+abstract class AbstractModel
+{
+    public function __construct(protected FlightService $flightService)
     {
     }
 
+    /**
+     * @return array<string, mixed>
+     */
     public function toArray(): array
     {
         return $this->recursiveToArray(get_object_vars($this));
     }
 
-    protected function recursiveToArray(iterable $props): array
+    /**
+     * @param array<string, mixed> $props
+     * @return array<string, mixed>
+     */
+    protected function recursiveToArray(array $props): array
     {
         foreach ($props as $key => $value) {
-            if ($value instanceof AbstractModelInterface) {
+            if ($value instanceof AbstractModel) {
                 $props[$key] = $value->toArray();
             }
-            if (is_iterable($value)) {
+            if (is_array($value)) {
                 $props[$key] = $this->recursiveToArray($value);
             }
-        }
-        if (!is_array($props)) {
-            $props = (array) $props;
         }
         return $props;
     }
 
     public function __toString(): string
     {
-        $rClass = new \ReflectionClass($this);
+        $rClass = new ReflectionClass($this);
         $model = $rClass->getShortName();
 
         $id = $this->getModelId();
@@ -54,26 +60,19 @@ abstract class AbstractModel {
         return '';
     }
 
-    protected function initialiseIterables(array $iterables): void
+    /**
+     * @param string[] $arrays
+     * @return void
+     */
+    protected function cloneArrays(array $arrays): void
     {
-        foreach ($iterables as $iterable) {
-            $this->{$iterable} = $this->container->get('iterable', []);
-        }
-    }
-
-    protected function cloneIterables(array $iterables): void
-    {
-        foreach ($iterables as $iterable) {
-            if (is_object($this->{$iterable})) {
-                $this->{$iterable} = clone $this->{$iterable};
+        foreach ($arrays as $array) {
+            if (is_object($this->{$array})) {
+                $this->{$array} = clone $this->{$array};
             }
-            foreach ($this->{$iterable} as $key => $value) {
-                $this->{$iterable}[$key] = clone $value;
+            foreach ($this->{$array} as $key => $value) {
+                $this->{$array}[$key] = clone $value;
             }
         }
-    }
-
-    public function __clone(): void
-    {
     }
 }

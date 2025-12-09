@@ -25,19 +25,18 @@
     "php": "^8.4|^8.5",
     "psr/http-client": "^1.0",
     "psr/log": "^3.0",
-    "psr/http-message": "^2.0",
-    "psr/container": "^2.0"
+    "psr/http-message": "^2.0"
   },
   "suggest": {
     "ext-protobuf": "Protobuf implementation in C as a PHP extension",
-    "google/protobuf": "Protobuf implementation in PHP"
+    "google/protobuf": "Protobuf implementation in PHP",
+    "guzzlehttp/guzzle": "Guzzle HTTP Client"
   },
   "require-dev": {
     "symfony/console": "^8.0",
     "guzzlehttp/guzzle": "^7.10",
     "google/protobuf": "^4.33",
     "squizlabs/php_codesniffer": "^4.0",
-    "phpstan/phpstan": "^2.1",
-    "nesbot/carbon": "^3.11"
+    "phpstan/phpstan": "^2.1"
   }
 }

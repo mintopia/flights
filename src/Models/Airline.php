@@ -1,24 +1,25 @@
 <?php
+
 declare(strict_types=1);
+
 namespace Mintopia\Flights\Models;
 
-use Mintopia\Flights\Container;
-use Mintopia\Flights\Interfaces\AirlineInterface;
+use Mintopia\Flights\FlightService;
 
-class Airline extends AbstractModel implements AirlineInterface
+class Airline extends AbstractModel
 {
-    public function __construct(protected Container $container, public string $code, public string $name)
+    public function __construct(protected FlightService $service, public ?string $code = null, public ?string $name = null)
     {
-        parent::__construct($container);
+        parent::__construct($service);
     }
 
     protected function getModelId(): string
     {
-        return $this->code;
+        return $this->code ?? '';
     }
 
     protected function getModelDescription(): string
     {
-        return $this->name;
+        return $this->name ?? '';
     }
 }
