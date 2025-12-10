@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Mintopia\Flights\Models;
 
+use DateTimeInterface;
 use Mintopia\Flights\FlightService;
 use ReflectionClass;
 
@@ -22,20 +23,24 @@ abstract class AbstractModel
     }
 
     /**
-     * @param array<string, mixed> $props
+     * @param iterable<string, mixed> $props
      * @return array<string, mixed>
      */
-    protected function recursiveToArray(array $props): array
+    protected function recursiveToArray(iterable $props): array
     {
+        $newProps = [];
         foreach ($props as $key => $value) {
             if ($value instanceof AbstractModel) {
-                $props[$key] = $value->toArray();
-            }
-            if (is_array($value)) {
-                $props[$key] = $this->recursiveToArray($value);
+                $newProps[$key] = $value->toArray();
+            } elseif ($value instanceof DateTimeInterface) {
+                $newProps[$key] = $value->format(DATE_ISO8601_EXPANDED);
+            } elseif (is_iterable($value)) {
+                $newProps[$key] = $this->recursiveToArray($value);
+            } else {
+                $newProps[$key] = $value;
             }
         }
-        return $props;
+        return $newProps;
     }
 
     public function __toString(): string
