@@ -36,6 +36,7 @@ class QueryBuilder
      * @var Segment[]
      */
     public array $segments;
+    protected bool $cache = true;
 
     public function __construct(protected FlightService $flightService)
     {
@@ -84,6 +85,13 @@ class QueryBuilder
     {
         $clone = clone $this;
         $clone->language = $language;
+        return $clone;
+    }
+
+    public function withoutCache(): self
+    {
+        $clone = clone $this;
+        $clone->cache = false;
         return $clone;
     }
 

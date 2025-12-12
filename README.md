@@ -175,6 +175,79 @@ $itineraries = $flightService
     ->get();
 ```
 
+### Caching
+
+The library supports a PSR16 compatible cache. To use it, either pass it in as a constructor argument or into the
+`setCache` method. All HTTP requests that result in a 200 OK response will be cached for the TTL. You can set the TTL
+with the `setCacheTTL` method which can take either a DateInterval object, a date interval string or a number of
+seconds. The default is 1 hour.
+
+There are two PSR16 cache interfaces included with the library, mostly for testing, and they aren't enabled by default.
+You can instantiate them and pass them in if you want them, but you probably have better ones available to you.
+
+```php
+use Mintopia\Flights\FlightService;
+use Mintopia\Flights\Cache\MemoryCache;
+use Mintopia\Flights\Cache\FileCache;
+
+// The cache also supports a PSR-3 logger
+$log = new Logger('flights');
+$log->pushHandler(new StreamHandler('flights.log', Level::Debug));
+
+// Use the MemoryCache. This uses a PHP array in-memory and does not persist the cache.
+$memoryCache = new MemoryCache(log: $log);
+$flightService = new FlightService(cache: $memoryCache);
+
+// Use the FileCache instead. This will save the cache to a file in the temp directory by default, but you can override
+// if you want.
+$fileCache = new FileCache(cacheFilename: __DIR__ . '/cache');
+$fileCache->setLogger($log);
+
+$flightService->setCache($fileCache);
+```
+
+The FileCache will automatically save the cache when the cache is deconstructed, but you can force it to be saved by
+calling the `flush()` method on it. You can also pass in the argument `autoFlush` set to true in the constructor to
+flush it automatically everytime the cache is modified.
+
+### Putting it all together
+
+So let's see a full implementation of the library:
+
+```php
+<?php
+// Include the composer autoload
+include __DIR__ . '/vendor/autoload.php';
+
+// Third-party libraries
+use GuzzleHttp\Client;
+use GuzzleHttp\Psr7\HttpFactory;
+use Monolog\Level;
+use Monolog\Logger;
+use Monolog\Handler\StreamHandler;
+
+// Our library classes
+use Mintopia\Flights\FlightService;
+use Mintopia\Flights\Cache\FileCache;
+
+// Create a logger for flights.log
+$log = new Logger('flights');
+$log->pushHandler(new StreamHandler('flights.log', Level::Debug));
+
+// Make our HTTP dependencies
+$client = new Client();
+$httpFactory = new HttpFactory();
+
+// Now make our cache
+$cache = new FileCache($log, autoFlush: true);
+
+// Create our flight service and use it!
+$flightService = new FlightService($httpFactory, $client, $log, $cache);
+$itineraries = $flightService->query()->addSegment('LON', 'FAO')->get();
+
+// Now iterate and do what you want with $itineraries
+```
+
 ## Contributing
 
 Please fork and raise pull requests! If you encounter any issues, please raise it and I'll investigate and hopefully
@@ -185,6 +258,9 @@ new major version.
 
 PHPStan is used at level 8 for static analysis, PHP Code Sniffer is setup for PSR12 compliance. Testing is not written
 yet but the aim is to use PHPUnit, 100% coverage and mutation testing using Infection.
+
+Finally - if you're using this in something cool - let me know! I love seeing things being used. If you're using it
+in something making you money - a coffee would be appreciated!
 
 ## Development
 
@@ -217,7 +293,8 @@ copied to the correct location.
 - More features, plane type, WiFi, seat pitch, etc.
 - Unit tests, coverage and mutation testing
 - Full documentation
-- Possibly an adapter to make it nice to use in Laravel with a Servie Provider, Carbon for dates and Collections
+- Possibly an adapter to make it nice to use in Laravel with a Service Provider, Carbon for dates and Collections (this
+  is done, I just need to publish it)
 
 ## Thanks
 
