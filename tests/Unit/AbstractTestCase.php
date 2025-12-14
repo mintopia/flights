@@ -1,4 +1,6 @@
-<?php /** @noinspection PhpIllegalPsrClassPathInspection */
+<?php
+
+/** @noinspection PhpIllegalPsrClassPathInspection */
 
 declare(strict_types=1);
 

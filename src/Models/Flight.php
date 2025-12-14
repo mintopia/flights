@@ -33,7 +33,7 @@ class Flight extends AbstractModel
     public DateTimeInterface $arrival;
 
     /**
-     * @param array $data
+     * @param mixed[] $data
      * @param ProtoFlight $flight
      * @return $this
      * @throws ContainerExceptionInterface

@@ -64,7 +64,7 @@ class Journey extends AbstractModel
     }
 
     /**
-     * @param array $data
+     * @param mixed[] $data
      * @return $this
      * @throws DecoderException
      * @throws ContainerExceptionInterface

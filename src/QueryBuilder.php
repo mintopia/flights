@@ -301,7 +301,7 @@ class QueryBuilder
     }
 
     /**
-     * @param array $itineraryData
+     * @param mixed[] $itineraryData
      * @return Journey[]
      * @throws DecoderException
      * @throws DependencyException

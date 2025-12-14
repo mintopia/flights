@@ -1,4 +1,6 @@
-<?php /** @noinspection PhpIllegalPsrClassPathInspection */
+<?php
+
+/** @noinspection PhpIllegalPsrClassPathInspection */
 
 declare(strict_types=1);
 
@@ -21,8 +23,7 @@ trait FixturesData
                         new Flight()
                             ->setArrival('2025-12-14 18:15:00')
                             ->setDeparture('2025-12-14 15:20:00')
-                    ]),
-                ));
+                    ]),));
     }
 
     protected function getGatwickJourneySummaryProtobuf(): FlightSummary
