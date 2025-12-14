@@ -8,9 +8,12 @@ use DateInterval;
 use DateTimeInterface;
 use Mintopia\Flights\Exceptions\DecoderException;
 use Mintopia\Flights\Exceptions\FlightException;
+use Mintopia\Flights\FlightService;
 use Mintopia\Flights\Protobuf\FlightSummary;
 use Mintopia\Flights\Protobuf\ItineraryData;
 use Mintopia\Flights\Protobuf\ItinerarySummary;
+use Psr\Container\ContainerExceptionInterface;
+use Psr\Container\NotFoundExceptionInterface;
 
 class Journey extends AbstractModel
 {
@@ -25,7 +28,7 @@ class Journey extends AbstractModel
             if (empty($this->flights)) {
                 throw new FlightException('No flights specified for journey');
             }
-            return $this->flights[0]->to;
+            return $this->flights[0]->from;
         }
     }
     public Airport $to {
@@ -33,7 +36,7 @@ class Journey extends AbstractModel
             if (empty($this->flights)) {
                 throw new FlightException('No flights specified for journey');
             }
-            return end($this->flights)->from;
+            return end($this->flights)->to;
         }
     }
     // phpcs:enable
@@ -43,7 +46,13 @@ class Journey extends AbstractModel
     public DateTimeInterface $arrival;
 
     public int $price = 0;
-    public string $currency = '';
+    public string $currency;
+
+    public function __construct(FlightService $flightService)
+    {
+        parent::__construct($flightService);
+        $this->currency = $flightService->currency;
+    }
 
     public function __clone(): void
     {
@@ -55,9 +64,11 @@ class Journey extends AbstractModel
     }
 
     /**
-     * @param mixed[] $data
+     * @param array $data
      * @return $this
      * @throws DecoderException
+     * @throws ContainerExceptionInterface
+     * @throws NotFoundExceptionInterface
      */
     public function parse(array $data): self
     {
@@ -69,7 +80,10 @@ class Journey extends AbstractModel
             throw new DecoderException('Unable to parse flight summary');
         }
         foreach ($data[0][2] as $i => $flightData) {
-            $flight = new Flight($this->flightService);
+            /**
+             * @var Flight $flight
+             */
+            $flight = $this->flightService->container->get(Flight::class);
             $flight->parse($flightData, $flightSummary[$i]);
             $this->flights[] = $flight;
         }
@@ -114,16 +128,13 @@ class Journey extends AbstractModel
      */
     public function getItineraryData(): array
     {
-        $flights = [];
-        foreach ($this->flights as $flight) {
-            $itineraryDate = new ItineraryData();
-            $itineraryDate->setFlightNumber($flight->number);
-            $itineraryDate->setFlightCode($flight->airline->code ?? '');
-            $itineraryDate->setDepartureAirport($flight->from->code ?? '');
-            $itineraryDate->setArrivalAirport($flight->to->code ?? '');
-            $itineraryDate->setDepartureDate($flight->departure->format('Y-m-d'));
-            $flights[] = $itineraryDate;
-        }
-        return $flights;
+        return array_map(function (Flight $flight) {
+            return new ItineraryData()
+                ->setFlightNumber($flight->number)
+                ->setFlightCode($flight->airline->code ?? '')
+                ->setDepartureAirport($flight->from->code ?? '')
+                ->setArrivalAirport($flight->to->code ?? '')
+                ->setDepartureDate($flight->departure->format('Y-m-d'));
+        }, $this->flights);
     }
 }

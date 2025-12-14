@@ -4,14 +4,17 @@ declare(strict_types=1);
 
 namespace Mintopia\Flights\Models;
 
+use DateInterval;
+use DateTimeInterface;
 use Mintopia\Flights\Exceptions\FlightException;
+use Mintopia\Flights\FlightService;
 use Mintopia\Flights\Protobuf\ItineraryData;
 
 class Itinerary extends AbstractModel
 {
     public ?string $note = null;
     public int $price = 0;
-    public ?string $currency = null;
+    public string $currency;
 
     /**
      * @var Journey[]
@@ -22,7 +25,7 @@ class Itinerary extends AbstractModel
     public Journey $outbound {
         get {
             if (empty($this->journeys)) {
-                throw new FlightException('No journey found in iterinary');
+                throw new FlightException('No journey found in itinerary');
             }
             return $this->journeys[0];
         }
@@ -31,7 +34,7 @@ class Itinerary extends AbstractModel
     public Journey $return {
         get {
             if (empty($this->journeys)) {
-                throw new FlightException('No journey found in iterinary');
+                throw new FlightException('No journey found in itinerary');
             }
             return end($this->journeys);
         }
@@ -52,6 +55,24 @@ class Itinerary extends AbstractModel
         }
     }
 
+    public DateTimeInterface $departure {
+        get {
+            return $this->outbound->departure;
+        }
+    }
+
+    public DateTimeInterface $arrival {
+        get {
+            return $this->return->arrival;
+        }
+    }
+
+    public DateInterval $duration {
+        get {
+            return $this->arrival->diff($this->departure);
+        }
+    }
+
     /**
      * @var Flight[]
      */
@@ -64,15 +85,21 @@ class Itinerary extends AbstractModel
     }
     // phpcs:enable
 
+    public function __construct(FlightService $flightService)
+    {
+        parent::__construct($flightService);
+        $this->currency = $flightService->currency;
+    }
+
     public function isReturn(): bool
     {
         if (count($this->journeys) !== 2) {
             return false;
         }
-        if ($this->journeys[0]->from !== $this->journeys[1]->to) {
+        if ($this->journeys[0]->to->code !== $this->journeys[1]->from->code) {
             return false;
         }
-        if ($this->journeys[1]->to != $$this->journeys[0]->from) {
+        if ($this->journeys[1]->to->code !== $this->journeys[0]->from->code) {
             return false;
         }
         return true;
@@ -99,7 +126,7 @@ class Itinerary extends AbstractModel
     {
         if (empty($this->journeys)) {
             $this->price = 0;
-            $this->currency = $this->flightService->getCurrency();
+            $this->currency = $this->flightService->currency;
             return;
         }
         $this->currency = $this->journeys[0]->currency;

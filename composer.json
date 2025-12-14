@@ -21,11 +21,18 @@
       "Mintopia\\Flights\\": "src/"
     }
   },
+  "autoload-dev": {
+    "psr-4": {
+      "Tests\\": "tests/"
+    }
+  },
   "require": {
     "php": "^8.4|^8.5",
     "psr/http-client": "^1.0",
     "psr/log": "^3.0",
     "psr/http-message": "^2.0",
+    "psr/clock": "^1.0",
+    "psr/container": "^2.0",
     "psr/simple-cache": "^3.0"
   },
   "suggest": {
@@ -38,6 +45,10 @@
     "guzzlehttp/guzzle": "^7.10",
     "google/protobuf": "^4.33",
     "squizlabs/php_codesniffer": "^4.0",
-    "phpstan/phpstan": "^2.1"
+    "phpstan/phpstan": "^2.1",
+    "phpunit/phpunit": "^12.5",
+    "lcobucci/clock": "^3.5",
+    "symfony/cache": "^8.0",
+    "league/container": "^5.1"
   }
 }

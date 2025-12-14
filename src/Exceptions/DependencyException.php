@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace Mintopia\Flights\Exceptions;
 
-use Exception;
-
-class DependencyException extends Exception
+class DependencyException extends FlightException
 {
 }

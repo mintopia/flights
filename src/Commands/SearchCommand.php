@@ -8,9 +8,10 @@ use DateInterval;
 use DateTimeImmutable;
 use GuzzleHttp\Client;
 use GuzzleHttp\Psr7\HttpFactory;
-use Mintopia\Flights\Cache\FileCache;
 use Mintopia\Flights\FlightService;
 use Mintopia\Flights\Models\Itinerary;
+use Symfony\Component\Cache\Adapter\FilesystemAdapter;
+use Symfony\Component\Cache\Psr16Cache;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Helper\TableSeparator;
 use Symfony\Component\Console\Input\InputArgument;
@@ -35,7 +36,7 @@ class SearchCommand extends Command
 
         $this->addOption('maxstops', 'm', InputOption::VALUE_REQUIRED, 'Maximum number of stops allowed', 0);
         $this->addOption('airlines', 'a', InputOption::VALUE_REQUIRED, 'Airlines to search for', '');
-        $this->addOption('duration', 'd', InputOption::VALUE_REQUIRED, 'Find return flights after this many days', null);
+        $this->addOption('duration', 'd', InputOption::VALUE_REQUIRED, 'Find return flights after this many days');
     }
 
     public function execute(InputInterface $input, OutputInterface $output): int
@@ -48,7 +49,7 @@ class SearchCommand extends Command
         $client = new Client();
         $requestFactory = new HttpFactory();
         $logger = new ConsoleLogger($output);
-        $cache = new FileCache(log: $logger);
+        $cache = new Psr16Cache(new FilesystemAdapter());
 
         // As an example, pass the logger in via constructor and the other dependencies in through methods
         $flightService = new FlightService(logger: $logger)

@@ -1,3 +1,7 @@
 /.protobufs/
 /vendor/
 /.idea
+/html-coverage/
+/.phpunit.result.cache
+/clover.xml
+/coverage.txt

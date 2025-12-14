@@ -5,11 +5,14 @@ declare(strict_types=1);
 namespace Mintopia\Flights;
 
 use DateMalformedStringException;
+use DateTimeImmutable;
 use DateTimeInterface;
+use DateTimeZone;
 use Mintopia\Flights\Enums\BookingClass;
 use Mintopia\Flights\Enums\PassengerType;
 use Mintopia\Flights\Enums\SortOrder;
 use Mintopia\Flights\Exceptions\DecoderException;
+use Mintopia\Flights\Exceptions\DependencyException;
 use Mintopia\Flights\Exceptions\GoogleException;
 use Mintopia\Flights\Exceptions\SearchException;
 use Mintopia\Flights\Models\Itinerary;
@@ -19,6 +22,8 @@ use Mintopia\Flights\Protobuf\Info;
 use Mintopia\Flights\Protobuf\ItineraryData;
 use Mintopia\Flights\Protobuf\Seat;
 use Mintopia\Flights\Protobuf\Trip;
+use Psr\Container\ContainerExceptionInterface;
+use Psr\Container\NotFoundExceptionInterface;
 
 class QueryBuilder
 {
@@ -37,9 +42,20 @@ class QueryBuilder
      */
     public array $segments;
     protected bool $cache = true;
+    protected FlightService $flightService;
 
-    public function __construct(protected FlightService $flightService)
+    public function __construct(?FlightService $flightService = null)
     {
+        if ($flightService !== null) {
+            $this->flightService = $flightService;
+        }
+    }
+
+    public function setFlightService(FlightService $flightService): self
+    {
+        $clone = clone $this;
+        $clone->flightService = $flightService;
+        return $clone;
     }
 
     public function addPassenger(PassengerType $passenger): self
@@ -116,6 +132,12 @@ class QueryBuilder
         $from = $this->normaliseArray($from);
         $to = $this->normaliseArray($to);
         $airlines = $this->normaliseArray($airlines);
+
+        if ($date === null) {
+            $date = $this->flightService->clock->now()->setTimezone(new DateTimeZone('UTC'));
+        } elseif (is_string($date)) {
+            $date =  new DateTimeImmutable($date, new DateTimeZone('UTC'));
+        }
 
         $segment = new Segment($from, $to, $date, $maxStops, $airlines);
         $clone = clone $this;
@@ -204,9 +226,18 @@ class QueryBuilder
 
     /**
      * @return Itinerary[]
+     * @throws ContainerExceptionInterface
+     * @throws DecoderException
+     * @throws DependencyException
+     * @throws GoogleException
+     * @throws NotFoundExceptionInterface
+     * @throws SearchException
      */
     public function get(): array
     {
+        if (!isset($this->flightService)) {
+            throw new DependencyException('FlightService not provided for QueryBuilder');
+        }
         /** @var Itinerary[] $itineraries */
         $itineraries = [];
         $this->flightService->log->debug("[Segment:1] Fetching journeys");
@@ -215,7 +246,10 @@ class QueryBuilder
         $journeys = $this->getJourneys();
         $this->flightService->log->debug("[Segment:1] Found " . count($journeys) . " journeys");
         foreach ($journeys as $journey) {
-            $itinerary = new Itinerary($this->flightService);
+            /**
+             * @var Itinerary $itinerary
+             */
+            $itinerary = $this->flightService->container->get(Itinerary::class);
             $itinerary->addJourney($journey);
             $itineraries[] = $itinerary;
         }
@@ -267,8 +301,12 @@ class QueryBuilder
     }
 
     /**
-     * @param mixed[] $itineraryData
+     * @param array $itineraryData
      * @return Journey[]
+     * @throws DecoderException
+     * @throws DependencyException
+     * @throws GoogleException
+     * @throws SearchException
      */
     protected function getJourneys(array $itineraryData = []): array
     {

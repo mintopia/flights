@@ -8,6 +8,8 @@ use DateInterval;
 use DateTimeImmutable;
 use DateTimeInterface;
 use Mintopia\Flights\Protobuf\FlightSummary\Itinerary\Sector\Flight as ProtoFlight;
+use Psr\Container\ContainerExceptionInterface;
+use Psr\Container\NotFoundExceptionInterface;
 
 class Flight extends AbstractModel
 {
@@ -19,29 +21,46 @@ class Flight extends AbstractModel
     public string $code;
     public string $number;
 
+    // phpcs:disable
+    public DateInterval $duration {
+        get {
+            return $this->departure->diff($this->arrival);
+        }
+    }
+    // phpcs:enable
+
     public DateTimeInterface $departure;
     public DateTimeInterface $arrival;
-    public DateInterval $duration;
 
     /**
-     * @param mixed[] $data
+     * @param array $data
      * @param ProtoFlight $flight
      * @return $this
+     * @throws ContainerExceptionInterface
+     * @throws NotFoundExceptionInterface
+     * @throws \DateMalformedStringException
      */
     public function parse(array $data, ProtoFlight $flight): self
     {
-        $this->from = new Airport($this->flightService, $data[3], $data[4]);
-        $this->to = new Airport($this->flightService, $data[6], $data[5]);
-        $this->airline = new Airline($this->flightService, $data[22][0], $data[22][3]);
+        $this->from = $this->flightService->container->get(Airport::class);
+        $this->from->code = $data[4];
+        $this->from->name = $data[3];
+
+        $this->to = $this->flightService->container->get(Airport::class);
+        $this->to->code = $data[6];
+        $this->to->name = $data[5];
+
+        $this->airline = $this->flightService->container->get(Airline::class);
+        $this->airline->code = $data[22][0];
+        $this->airline->name = $data[22][3];
+
         $this->number = $data[22][1];
         $this->code = $data[22][0] . $data[22][1];
 
         $this->departure = new DateTimeImmutable($flight->getDeparture());
         $this->arrival = new DateTimeImmutable($flight->getArrival());
 
-        $this->duration = $this->arrival->diff($this->departure);
-
-        $this->operator = $this->airline->name ?? '';
+        $this->operator = $this->airline->name;
         if ($data[2] !== null) {
             $this->operator = $data[2];
         }
@@ -50,6 +69,14 @@ class Flight extends AbstractModel
 
     protected function getModelId(): string
     {
-        return $this->code;
+        return $this->code ?? parent::getModelId();
+    }
+
+    protected function getModelDescription(): string
+    {
+        if (!isset($this->from->code) || !isset($this->to->code)) {
+            return parent::getModelDescription();
+        }
+        return "{$this->from->code} to {$this->to->code}";
     }
 }

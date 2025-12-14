@@ -3,23 +3,26 @@
     xsi:noNamespaceSchemaLocation="vendor/phpunit/phpunit/phpunit.xsd"
     bootstrap="vendor/autoload.php"
     colors="true"
-    stopOnFailure="false"
 >
     <testsuites>
         <testsuite name="Unit">
-            <directory>tests</directory>
+            <directory>tests/Unit</directory>
         </testsuite>
     </testsuites>
     <source>
         <include>
             <directory>src</directory>
         </include>
+        <exclude>
+            <directory>src/Protobuf</directory>
+            <directory>src/Commands</directory>
+        </exclude>
     </source>
     <coverage>
         <report>
             <text outputFile="coverage.txt" showUncoveredFiles="true" />
             <clover outputFile="clover.xml" />
-            <html outputDirectory="html-coverage" lowUpperBound="50" highLowerBound="90" />
+            <html outputDirectory="html-coverage" />
         </report>
     </coverage>
 </phpunit>
