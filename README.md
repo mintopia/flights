@@ -23,7 +23,7 @@ There's some terminology used in the library that is helpful to understand.
   multiple flights if there are connections. Each journey does have a price. You can add these using the `addSegment`
   method on the Search class.
 - `Itinerary` - A collection of journeys that make up a single ticketed and priced trip. This would include both the
-  and return flights.
+  outbound and return flights.
 
 Airports are represented by their 3-digit IATA codes, eg. `LHR` for London Heathrow or `LON` for all airports in
 the London area.
@@ -48,7 +48,7 @@ $search = new Mintopia\Flights\FlightService(requestFactory: $requestFactory, ht
 ```
 
 You can also specify a PSR-3 compatible logging interface to either the constructor or via the `setLogger` method. If
-one is isn't supplied then a null logger is used instead. An example using Monolog is:
+one isn't supplied then a null logger is used instead. An example using Monolog is:
 
 ```php
 // Our HTTP client and request factory from Guzzle
@@ -121,7 +121,7 @@ $itineraries = $flightService
     ->get();
 ```
 
-By default it searches for flights for one passenger, but you can add more:
+By default, it searches for flights for one passenger, but you can add more:
 
 ```php
 use Mintopia\Flights\Enums\PassengerType;
@@ -162,7 +162,7 @@ $itineraries = $flightService
     ->get();
 ```
 
-Finally you can sort the results by adding the `sortOrder()` call to the search.
+Finally, you can sort the results by adding the `sortOrder()` call to the search.
 
 ```php
 use Mintopia\Flights\Enums\SortOrder;
@@ -256,7 +256,7 @@ fix it.
 The project is targeting PHP 8.4 onwards, any breaking changes for a version of PHP that is supported will result in a
 new major version.
 
-PHPStan is used at level 8 for static analysis, PHP Code Sniffer is setup for PSR12 compliance. Testing is not written
+PHPStan is used at level 8 for static analysis, PHP Code Sniffer is set up for PSR12 compliance. Testing is not written
 yet but the aim is to use PHPUnit, 100% coverage and mutation testing using Infection.
 
 Finally - if you're using this in something cool - let me know! I love seeing things being used. If you're using it
@@ -290,7 +290,7 @@ copied to the correct location.
 ## Todo
 
 - Support for multi city searches
-- More features, plane type, WiFi, seat pitch, etc.
+- More features, plane type, Wi-Fi, seat pitch, etc.
 - Unit tests, coverage and mutation testing
 - Full documentation
 - Possibly an adapter to make it nice to use in Laravel with a Service Provider, Carbon for dates and Collections (this
