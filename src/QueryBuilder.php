@@ -18,10 +18,13 @@ use Mintopia\Flights\Exceptions\SearchException;
 use Mintopia\Flights\Models\Itinerary;
 use Mintopia\Flights\Models\Journey;
 use Mintopia\Flights\Models\Segment;
+use Mintopia\Flights\Protobuf\Airport;
 use Mintopia\Flights\Protobuf\Info;
 use Mintopia\Flights\Protobuf\ItineraryData;
+use Mintopia\Flights\Protobuf\Passenger;
 use Mintopia\Flights\Protobuf\Seat;
 use Mintopia\Flights\Protobuf\Trip;
+use Mintopia\Flights\Protobuf\UnknownFlag;
 use Psr\Container\ContainerExceptionInterface;
 use Psr\Container\NotFoundExceptionInterface;
 
@@ -40,7 +43,7 @@ class QueryBuilder
     /**
      * @var Segment[]
      */
-    public array $segments;
+    public array $segments = [];
     protected bool $cache = true;
     protected FlightService $flightService;
 
@@ -129,6 +132,9 @@ class QueryBuilder
      */
     public function addSegment(string|array $from, string|array $to, string|DateTimeInterface|null $date = null, int $maxStops = 0, string|array $airlines = []): self
     {
+        if (!isset($this->flightService)) {
+            throw new DependencyException('FlightService not provided for QueryBuilder');
+        }
         $from = $this->normaliseArray($from);
         $to = $this->normaliseArray($to);
         $airlines = $this->normaliseArray($airlines);
@@ -185,10 +191,8 @@ class QueryBuilder
         if ($segmentCount === 0) {
             throw new SearchException('No segments specified');
         }
-        if ($segmentCount > 2) {
-            throw new SearchException('Multi city searches are not supported');
-        }
         $flightData = [];
+        $tripType = Trip::ONE_WAY;
         foreach ($this->segments as $i => $segment) {
             $segmentData = $segment->encode();
             if (isset($itineraryData[$i])) {
@@ -197,10 +201,31 @@ class QueryBuilder
             $flightData[] = $segmentData;
         }
 
-        $tripType = match (true) {
-            $segmentCount == 1 => Trip::ONE_WAY,
-            true => Trip::MULTI_CITY,
-        };
+        if ($segmentCount == 2) {
+            $tripType = Trip::MULTI_CITY;
+            $map = [
+                iterator_to_array($flightData[0]->getFromFlight()),
+                iterator_to_array($flightData[1]->getToFlight()),
+                iterator_to_array($flightData[0]->getToFlight()),
+                iterator_to_array($flightData[1]->getFromFlight()),
+            ];
+            $codes = array_map(function (array $flights) {
+                $flights = array_map(function (Airport $airport) {
+                    return $airport->getAirport();
+                }, $flights);
+                sort($flights);
+                return $flights;
+            }, $map);
+            if ($codes[0] === $codes[1] && $codes[2] === $codes[3]) {
+                $tripType = Trip::ROUND_TRIP;
+            }
+        } elseif ($segmentCount >= 3) {
+            $tripType = Trip::MULTI_CITY;
+        }
+
+        if ($tripType === Trip::MULTI_CITY) {
+            throw new SearchException('Multi-city trips are not supported');
+        }
 
         $seat = match ($this->bookingClass) {
             BookingClass::Unknown => Seat::UNKNOWN_SEAT,
@@ -210,18 +235,19 @@ class QueryBuilder
             BookingClass::First => Seat::FIRST,
         };
 
-        if (count($this->passengers) === 0) {
-            $this->addPassenger(PassengerType::Adult);
-        }
+        $passengers = array_map(function (PassengerType $passengerType): int {
+            return $passengerType->value;
+        }, $this->passengers);
 
+        if (count($passengers) === 0) {
+            $passengers[] = Passenger::ADULT;
+        }
         $info = new Info()
             ->setData($flightData)
             ->setTrip($tripType)
-            ->setPassengers(array_map(function (PassengerType $passengerType): int {
-                return $passengerType->value;
-            }, $this->passengers))
+            ->setPassengers($passengers)
             ->setSeat($seat);
-        return base64_encode($info->serializeToString());
+        return str_replace('/', '_', base64_encode($info->serializeToString()));
     }
 
     /**
@@ -287,7 +313,7 @@ class QueryBuilder
                 case SortOrder::DepartureTime:
                     return $itinerary1->outbound->departure->getTimestamp() <=> $itinerary2->outbound->departure->getTimestamp();
                 case SortOrder::Duration:
-                    return $itinerary1->outbound->duration <=> $itinerary2->outbound->duration;
+                    return $itinerary1->durationInSeconds <=> $itinerary2->durationInSeconds;
                 case SortOrder::Price:
                     return $itinerary1->price <=> $itinerary2->price;
                 default:
@@ -320,7 +346,7 @@ class QueryBuilder
         ]));
         $this->flightService->log->debug("GET {$uri}");
         $request = $request->withUri($uri);
-        $response = $this->flightService->makeRequest($request);
+        $response = $this->flightService->makeRequest($request, $this->cache);
 
         return $this->parseResponse($response);
     }
@@ -370,18 +396,15 @@ class QueryBuilder
         $this->flightService->log->debug("Found data start at {$start}");
         $end = strpos($response, '], sideChannel', $start);
         if ($end === false) {
-            throw new GoogleException("Unable to find data end at Google response");
+            throw new GoogleException("Unable to find data end in Google response");
         }
         $end += 1;
         $this->flightService->log->debug("Found data end at {$end}");
         $body = substr($response, $start, $end - $start);
         $json = json_decode($body);
-        if ($json === false) {
-            throw new DecoderException("Failed to parse JSON response at {$start}: " . json_last_error_msg());
-        }
         if (!is_array($json)) {
-            $this->flightService->log->debug("JSON response did not decode to an array at {$start}: " . json_last_error_msg());
-            throw new DecoderException("JSON response did not decode to an array at {$start}: " . json_last_error_msg());
+            $this->flightService->log->debug("JSON response did not decode to an array: " . json_last_error_msg());
+            throw new DecoderException("JSON response did not decode to an array: " . json_last_error_msg());
         }
         $this->flightService->log->debug("Found JSON data at {$start}");
         return $json;

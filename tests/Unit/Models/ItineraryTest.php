@@ -234,6 +234,7 @@ class ItineraryTest extends AbstractTestCase
         $this->assertSame($this->connectingJourney->to, $itinerary->to);
 
         $this->assertEquals('PT7H40M', DateIntervalFormatter::format($itinerary->duration));
+        $this->assertEquals(27600, $itinerary->durationInSeconds);
         $this->assertSame($this->connectingJourney->departure, $itinerary->departure);
         $this->assertSame($this->connectingJourney->arrival, $itinerary->arrival);
     }
@@ -351,6 +352,7 @@ class ItineraryTest extends AbstractTestCase
             'departure' => '2025-12-14T15:20:00+00:00',
             'arrival' => '2025-12-15T21:50:00+00:00',
             'duration' => 'P1DT6H30M',
+            'durationInSeconds' => 109800,
             'from' => $itinerary->from->toArray(),
             'to' => $itinerary->to->toArray(),
             'flights' => [

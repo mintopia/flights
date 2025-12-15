@@ -73,6 +73,12 @@ class Itinerary extends AbstractModel
         }
     }
 
+    public int $durationInSeconds {
+        get {
+            return $this->arrival->getTimestamp() - $this->departure->getTimestamp();
+        }
+    }
+
     /**
      * @var Flight[]
      */

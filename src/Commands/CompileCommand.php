@@ -48,6 +48,11 @@ class CompileCommand extends Command
     {
         $src = '.protobufs/Mintopia/Flights/Protobuf/';
         $dst = 'src/Protobuf/';
+
+        if (!file_exists($dst)) {
+            mkdir($dst);
+        }
+
         $this->io->writeln("Moving compiled Protobufs from <fg=cyan>{$src}</> to <fg=cyan>{$dst}</>");
         passthru("mv ./{$src}* ./{$dst}", $resultCode);
         if ($resultCode !== 0) {

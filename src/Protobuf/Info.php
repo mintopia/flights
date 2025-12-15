@@ -30,7 +30,7 @@ class Info extends \Google\Protobuf\Internal\Message
      */
     private $data;
     /**
-     * Generated from protobuf field <code>repeated .protobuf.Passenger passengers = 8;</code>
+     * Generated from protobuf field <code>repeated uint32 passengers = 8;</code>
      */
     private $passengers;
     /**
@@ -146,7 +146,7 @@ class Info extends \Google\Protobuf\Internal\Message
     }
 
     /**
-     * Generated from protobuf field <code>repeated .protobuf.Passenger passengers = 8;</code>
+     * Generated from protobuf field <code>repeated uint32 passengers = 8;</code>
      * @return RepeatedField<int>
      */
     public function getPassengers()
@@ -155,13 +155,13 @@ class Info extends \Google\Protobuf\Internal\Message
     }
 
     /**
-     * Generated from protobuf field <code>repeated .protobuf.Passenger passengers = 8;</code>
+     * Generated from protobuf field <code>repeated uint32 passengers = 8;</code>
      * @param int[] $var
      * @return $this
      */
     public function setPassengers($var)
     {
-        $arr = GPBUtil::checkRepeatedField($var, \Google\Protobuf\Internal\GPBType::ENUM, \Mintopia\Flights\Protobuf\Passenger::class);
+        $arr = GPBUtil::checkRepeatedField($var, \Google\Protobuf\Internal\GPBType::UINT32);
         $this->passengers = $arr;
 
         return $this;

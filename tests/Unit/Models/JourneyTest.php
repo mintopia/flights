@@ -66,6 +66,7 @@ class JourneyTest extends AbstractTestCase
         $this->assertEquals(1, $journey->stops);
         $this->assertEquals(21039, $journey->price);
         $this->assertEquals('PT7H40M', DateIntervalFormatter::format($journey->duration));
+        $this->assertEquals(27600, $journey->durationInSeconds);
         $this->assertEquals('2025-12-14T15:20:00+00:00', $journey->departure->format('c'));
         $this->assertEquals('2025-12-14T23:00:00+00:00', $journey->arrival->format('c'));
         $this->assertEquals('LGW', $journey->from->code);
@@ -198,6 +199,7 @@ class JourneyTest extends AbstractTestCase
             'departure' => '2025-12-14T15:20:00+00:00',
             'arrival' => '2025-12-14T23:00:00+00:00',
             'duration' => 'PT7H40M',
+            'durationInSeconds' => 27600,
             'price' => 21039,
             'currency' => 'GBP',
             'stops' => 1,

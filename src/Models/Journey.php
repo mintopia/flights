@@ -39,6 +39,12 @@ class Journey extends AbstractModel
             return end($this->flights)->to;
         }
     }
+
+    public int $durationInSeconds {
+        get {
+            return $this->arrival->getTimestamp() - $this->departure->getTimestamp();
+        }
+    }
     // phpcs:enable
     public int $stops = 0;
     public DateInterval $duration;

@@ -27,6 +27,11 @@ class Flight extends AbstractModel
             return $this->departure->diff($this->arrival);
         }
     }
+    public int $durationInSeconds {
+        get {
+            return $this->arrival->getTimestamp() - $this->departure->getTimestamp();
+        }
+    }
     // phpcs:enable
 
     public DateTimeInterface $departure;
@@ -43,8 +48,8 @@ class Flight extends AbstractModel
     public function parse(array $data, ProtoFlight $flight): self
     {
         $this->from = $this->flightService->container->get(Airport::class);
-        $this->from->code = $data[4];
-        $this->from->name = $data[3];
+        $this->from->code = $data[3];
+        $this->from->name = $data[4];
 
         $this->to = $this->flightService->container->get(Airport::class);
         $this->to->code = $data[6];

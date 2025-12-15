@@ -80,7 +80,7 @@ message Info {
   sint32              flag_1         = 1;  // zig-zag(14)=28 → varint 0x1c
   sint32              flag_2       = 2;  // zig-zag(1)=2  → varint 0x02
   repeated FlightData data = 3;
-  repeated Passenger passengers = 8;
+  repeated uint32 passengers = 8;
   Seat seat = 9;
   sint32              flag_3  = 14; // zig-zag(–1)=1 → varint 0x01
   Trip trip = 19;

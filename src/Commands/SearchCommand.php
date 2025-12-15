@@ -92,7 +92,6 @@ class SearchCommand extends Command
         if ($return !== null) {
             $query = $query->addSegment($toAirports, $fromAirports, $return, $maxStops, $airlines);
         }
-
         $itineraries = $query->get();
         $this->renderItineraries($itineraries);
 

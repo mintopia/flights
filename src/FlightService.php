@@ -188,10 +188,13 @@ class FlightService implements LoggerAwareInterface
      */
     public function query(): QueryBuilder
     {
+        // We can't cover this in tests
+        // @codeCoverageIgnoreStart
         if (!class_exists('Google\Protobuf\Internal\Message')) {
             $this->log->error('Unable to find Google\Protobuf\Internal\Message class');
             throw new FlightException('Please install the ext-protobuf extension or google/protobuf library');
         }
+        // @codeCoverageIgnoreEnd
 
         return $this->container->get(QueryBuilder::class)
             ->setFlightService($this)

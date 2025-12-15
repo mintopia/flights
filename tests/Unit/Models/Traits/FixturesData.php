@@ -163,8 +163,8 @@ trait FixturesData
     {
         return [
             2 => 'BA Euroflyer',
-            3 => 'London Gatwick',
-            4 => 'LGW',
+            3 => 'LGW',
+            4 => 'London Gatwick',
             5 => 'Faro',
             6 => 'FAO',
             22 => [
@@ -180,8 +180,8 @@ trait FixturesData
     {
         return [
             2 => 'BA Euroflyer',
-            3 => 'Faro',
-            4 => 'FAO',
+            3 => 'FAO',
+            4 => 'Faro',
             5 => 'London Gatwick',
             6 => 'LGW',
             22 => [
@@ -197,8 +197,8 @@ trait FixturesData
     {
         return [
             2 => null,
-            3 => 'Faro',
-            4 => 'FAO',
+            3 => 'FAO',
+            4 => 'Faro',
             5 => 'Porto',
             6 => 'OPO',
             22 => [

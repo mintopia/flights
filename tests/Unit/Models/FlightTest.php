@@ -92,6 +92,7 @@ class FlightTest extends AbstractTestCase
             'airline' => $flight->airline->toArray(),
             'operator' => 'BA Euroflyer',
             'number' => '2662',
+            'durationInSeconds' => 10500,
         ], $array);
     }
 
@@ -107,6 +108,7 @@ class FlightTest extends AbstractTestCase
         $this->assertEquals('BA', $flight->airline->code);
         $this->assertEquals('British Airways', $flight->airline->name);
         $this->assertEquals('BA Euroflyer', $flight->operator);
+        $this->assertEquals(10500, $flight->durationInSeconds);
     }
 
     public function testOperatorIsSetToAirlineIfNotSpecified(): void
