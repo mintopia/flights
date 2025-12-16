@@ -1,0 +1,72 @@
+name: Code Quality
+on:
+  workflow_call:
+  workflow_dispatch:
+  pull_request:
+    branches:
+      - master
+      - develop
+    paths-ignore:
+      - '**.md'
+  push:
+    branches:
+      - master
+      - develop
+    paths-ignore:
+      - '**.md'
+jobs:
+  code-quality:
+    runs-on: ${{ matrix.operating-system }}
+    strategy:
+      fail-fast: true
+      matrix:
+        operating-system: ['ubuntu-latest', 'macos-latest']
+        php-versions: [8.4, 8.5]
+    steps:
+      - name: Force linux line endings
+        run: |
+          git config --global core.autocrlf false
+          git config --global core.eol lf
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php-versions }}
+          ini-values: post_max_size=512M, max_execution_time=180
+          coverage: xdebug
+          tools: phpcs, phpstan, phpunit
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup problem matchers for PHPUnit
+        run: echo "::add-matcher::${{ runner.tool_cache }}/phpunit.json"
+
+      - name: Get composer cache directory
+        id: composer-cache
+        run: echo "dir=$(composer config cache-files-dir)" >> $GITHUB_OUTPUT
+
+      - name: Cache dependencies
+        uses: actions/cache@v3
+        with:
+          path: ${{ steps.composer-cache.outputs.dir }}
+          key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}
+          restore-keys: ${{ runner.os }}-composer-${{ matrix.php-versions }}
+
+      - name: Install dependencies
+        run: composer install --prefer-dist --dev
+
+      - name: Run PHP Codesniffer
+        run: phpcs
+
+      - name: Run PHPStan
+        run: phpstan
+
+      - name: Run tests and collect coverage
+        run: vendor/bin/phpunit --coverage-clover coverage.xml
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
