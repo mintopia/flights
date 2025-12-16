@@ -35,6 +35,7 @@ jobs:
         with:
           php-version: ${{ matrix.php-versions }}
           ini-values: post_max_size=512M, max_execution_time=180
+          extensions: protobuf
           coverage: xdebug
           tools: phpcs, phpstan, phpunit
         env:
