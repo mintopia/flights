@@ -57,7 +57,7 @@ class FlightService implements LoggerAwareInterface
     /**
      * @return string[]
      */
-    public function __serialize(): array
+    public function __sleep(): array
     {
         return [
             'cookies',
@@ -72,6 +72,8 @@ class FlightService implements LoggerAwareInterface
     public function __wakeup(): void
     {
         $this->log = new NullLogger();
+        $this->clock = new SimpleClock();
+        $this->container = new SimpleContainer($this);
     }
 
     public function __construct(
@@ -99,13 +101,13 @@ class FlightService implements LoggerAwareInterface
     }
 
     // Our injected dependencies
-    public function setHttpClient(ClientInterface $httpClient): self
+    public function setHttpClient(?ClientInterface $httpClient = null): self
     {
         $this->httpClient = $httpClient;
         return $this;
     }
 
-    public function setRequestFactory(?RequestFactoryInterface $requestFactory): self
+    public function setRequestFactory(?RequestFactoryInterface $requestFactory = null): self
     {
         $this->requestFactory = $requestFactory;
         return $this;
@@ -116,19 +118,19 @@ class FlightService implements LoggerAwareInterface
         $this->log = $logger;
     }
 
-    public function setCache(?CacheInterface $cache): self
+    public function setCache(?CacheInterface $cache = null): self
     {
         $this->cache = $cache;
         return $this;
     }
 
-    public function setClock(?ClockInterface $clock): self
+    public function setClock(?ClockInterface $clock = null): self
     {
         $this->clock = $clock ?? new SimpleClock();
         return $this;
     }
 
-    public function setContainer(?ContainerInterface $container): self
+    public function setContainer(?ContainerInterface $container = null): self
     {
         $this->container->setParent($container);
         return $this;
@@ -142,7 +144,7 @@ class FlightService implements LoggerAwareInterface
         return $this;
     }
 
-    public function setCacheTTL(string|int|DateInterval|null $ttl): self
+    public function setCacheTTL(string|int|DateInterval|null $ttl = null): self
     {
         if ($ttl === null) {
             $ttl = self::DEFAULT_CACHE_TTL;

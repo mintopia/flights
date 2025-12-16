@@ -8,11 +8,6 @@ namespace Tests\Unit;
 
 use DateTimeImmutable;
 use DateTimeZone;
-use GuzzleHttp\Client;
-use GuzzleHttp\ClientInterface;
-use GuzzleHttp\Handler\MockHandler;
-use GuzzleHttp\HandlerStack;
-use GuzzleHttp\Middleware;
 use GuzzleHttp\Psr7\HttpFactory;
 use GuzzleHttp\Psr7\Request;
 use GuzzleHttp\Psr7\Response;
@@ -40,17 +35,6 @@ class QueryBuilderTest extends AbstractTestCase
         }, $responses);
         $client = $this->makeMockHttpClient($responses);
         return new FlightService(new HttpFactory(), $client);
-    }
-
-    protected function makeMockHttpClient(array $responses = [], array &$history = []): ClientInterface
-    {
-        $historyMiddleware = Middleware::history($history);
-        $mock = new MockHandler($responses);
-        $handlerStack = HandlerStack::create($mock);
-        $handlerStack->push($historyMiddleware);
-        return new Client([
-            'handler' => $handlerStack,
-        ]);
     }
 
     protected function getRequestHistoryForQueryBuilder(QueryBuilder $queryBuilder): array
