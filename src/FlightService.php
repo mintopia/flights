@@ -124,6 +124,12 @@ class FlightService implements LoggerAwareInterface
         return $this;
     }
 
+    public function setCachePrefix(?string $prefix = null): self
+    {
+        $this->cachePrefix = $prefix ?? self::DEFAULT_CACHE_PREFIX;
+        return $this;
+    }
+
     public function setClock(?ClockInterface $clock = null): self
     {
         $this->clock = $clock ?? new SimpleClock();

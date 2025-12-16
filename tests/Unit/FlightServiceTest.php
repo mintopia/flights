@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit;
 
+use DateInterval;
 use DateTimeImmutable;
 use DateTimeZone;
 use GuzzleHttp\Psr7\HttpFactory;
@@ -12,13 +13,16 @@ use Lcobucci\Clock\SystemClock;
 use League\Container\Container;
 use Mintopia\Flights\Enums\SortOrder;
 use Mintopia\Flights\Exceptions\DependencyException;
+use Mintopia\Flights\Exceptions\GoogleException;
 use Mintopia\Flights\FlightService;
 use Mintopia\Flights\QueryBuilder;
 use Mintopia\Flights\Support\SimpleClock;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Psr\Clock\ClockInterface;
 use Psr\Http\Message\RequestInterface;
 use Psr\Log\NullLogger;
 use Symfony\Component\Cache\Adapter\ArrayAdapter;
+use Symfony\Component\Cache\Exception\InvalidArgumentException;
 use Symfony\Component\Cache\Psr16Cache;
 
 class FlightServiceTest extends AbstractTestCase
@@ -523,7 +527,351 @@ class FlightServiceTest extends AbstractTestCase
         $flightService->query();
     }
 
-    // TODO: Cache TTL
+    public function testCacheCanBeSetThroughConstructor(): void
+    {
+        $history = [];
+        $httpClient = $this->makeMockHttpClient([
+            new Response(200, [], 'Foobar 123'),
+        ], $history);
+        $cache = $this->createMock(Psr16Cache::class);
+        $cache
+            ->expects($this->once())
+            ->method('has')
+            ->with($this->stringStartsWith(FlightService::DEFAULT_CACHE_PREFIX))
+            ->willReturn(false);
+        $cache
+            ->expects($this->once())
+            ->method('set')
+            ->with(
+                key: $this->stringStartsWith(FlightService::DEFAULT_CACHE_PREFIX),
+                value: $this->identicalTo('Foobar 123'),
+                ttl: $this->equalTo(new \DateInterval(FlightService::DEFAULT_CACHE_TTL)),
+            )
+            ->willReturn(true);
 
-    // TODO: Cache
+        $flightService = new FlightService(new HttpFactory(), $httpClient, cache: $cache);
+        $this->expectException(GoogleException::class);
+        $this->expectExceptionMessage('nable to find script tag in Google response');
+        $flightService->query()->addSegment('LGW', 'FAO')->get();
+    }
+
+    public function testCacheResultIsUsed(): void
+    {
+        $cache = $this->createMock(Psr16Cache::class);
+        $cache
+            ->expects($this->once())
+            ->method('has')
+            ->with($this->stringStartsWith(FlightService::DEFAULT_CACHE_PREFIX))
+            ->willReturn(true);
+        $cache->expects($this->once())
+            ->method('get')
+            ->with($this->stringStartsWith(FlightService::DEFAULT_CACHE_PREFIX))
+            ->willReturn('Foobar 123');
+
+        $flightService = new FlightService(new HttpFactory(), cache: $cache);
+        $request = $flightService->createRequest('GET', 'foobar');
+        $response = $flightService->makeRequest($request);
+        $this->assertEquals('Foobar 123', $response);
+    }
+
+    public function testCacheIsNotUsedIfForced(): void
+    {
+        $history = [];
+        $mockHttpClient = $this->makeMockHttpClient([
+            new Response(200, [], 'Foobar 123'),
+        ], $history);
+        $cache = $this->createMock(Psr16Cache::class);
+        $cache
+            ->expects($this->never())
+            ->method('has');
+        $cache->expects($this->never())
+            ->method('get');
+        $cache
+            ->expects($this->once())
+            ->method('set')
+            ->with(
+                key: $this->stringStartsWith(FlightService::DEFAULT_CACHE_PREFIX),
+                value: $this->identicalTo('Foobar 123'),
+                ttl: $this->equalTo(new \DateInterval(FlightService::DEFAULT_CACHE_TTL)),
+            )
+            ->willReturn(true);
+        $flightService = new FlightService(new HttpFactory(), $mockHttpClient, cache: $cache);
+        $request = $flightService->createRequest('GET', 'foobar');
+        $response = $flightService->makeRequest($request, false);
+        $this->assertEquals('Foobar 123', $response);
+    }
+
+    public function testCacheExceptionIsHandled(): void
+    {
+        $history = [];
+        $mockHttpClient = $this->makeMockHttpClient([
+            new Response(200, [], 'Foobar 123'),
+        ], $history);
+        $cache = $this->createMock(Psr16Cache::class);
+        $cache
+            ->expects($this->never())
+            ->method('has');
+        $cache->expects($this->never())
+            ->method('get');
+        $cache
+            ->expects($this->once())
+            ->method('set')
+            ->with(
+                key: $this->stringStartsWith(FlightService::DEFAULT_CACHE_PREFIX),
+                value: $this->identicalTo('Foobar 123'),
+                ttl: $this->equalTo(new \DateInterval(FlightService::DEFAULT_CACHE_TTL)),
+            )
+            ->willThrowException(new InvalidArgumentException());
+        $flightService = new FlightService(new HttpFactory(), $mockHttpClient, cache: $cache);
+        $request = $flightService->createRequest('GET', 'foobar');
+        $response = $flightService->makeRequest($request, false);
+        $this->assertEquals('Foobar 123', $response);
+    }
+
+    public function testCacheCanBeSetThroughMethod(): void
+    {
+        $cache = $this->createMock(Psr16Cache::class);
+        $cache
+            ->expects($this->once())
+            ->method('has')
+            ->with($this->stringStartsWith(FlightService::DEFAULT_CACHE_PREFIX))
+            ->willReturn(true);
+        $cache->expects($this->once())
+            ->method('get')
+            ->with($this->stringStartsWith(FlightService::DEFAULT_CACHE_PREFIX))
+            ->willReturn('Foobar 123');
+
+        $flightService = new FlightService(new HttpFactory());
+        $flightService->setCache($cache);
+        $request = $flightService->createRequest('GET', 'foobar');
+        $response = $flightService->makeRequest($request);
+        $this->assertEquals('Foobar 123', $response);
+    }
+
+    public function testCacheCanBeUnset(): void
+    {
+        $history = [];
+        $mockHttpClient = $this->makeMockHttpClient([
+            new Response(200, [], 'Testing 123'),
+        ], $history);
+
+        $cache = $this->createMock(Psr16Cache::class);
+        $cache
+            ->expects($this->never())
+            ->method('has');
+        $cache->expects($this->never())
+            ->method('get');
+
+        $flightService = new FlightService(new HttpFactory(), $mockHttpClient, cache: $cache);
+        $request = $flightService->createRequest('GET', 'foobar');
+        $flightService->setCache();
+        $response = $flightService->makeRequest($request);
+        $this->assertEquals('Testing 123', $response);
+    }
+
+    public function testCachePrefixCanBeSet(): void
+    {
+        $history = [];
+        $mockHttpClient = $this->makeMockHttpClient([
+            new Response(200, [], 'Foobar 123'),
+        ], $history);
+        $cache = $this->createMock(Psr16Cache::class);
+        $cache
+            ->expects($this->once())
+            ->method('has')
+            ->with($this->stringStartsWith('mycacheprefix'))
+            ->willReturn(false);
+        $cache->expects($this->never())
+            ->method('get');
+        $cache
+            ->expects($this->once())
+            ->method('set')
+            ->with(
+                key: $this->stringStartsWith('mycacheprefix.'),
+                value: $this->identicalTo('Foobar 123'),
+                ttl: $this->equalTo(new \DateInterval(FlightService::DEFAULT_CACHE_TTL)),
+            )
+            ->willReturn(true);
+        $flightService = new FlightService(new HttpFactory(), $mockHttpClient, cache: $cache);
+        $flightService->setCachePrefix('mycacheprefix.');
+        $request = $flightService->createRequest('GET', 'foobar');
+        $response = $flightService->makeRequest($request);
+        $this->assertEquals('Foobar 123', $response);
+    }
+
+    public function testCachePrefixCanBeUnset(): void
+    {
+
+        $history = [];
+        $mockHttpClient = $this->makeMockHttpClient([
+            new Response(200, [], 'Foobar 123'),
+        ], $history);
+        $cache = $this->createMock(Psr16Cache::class);
+        $cache
+            ->expects($this->once())
+            ->method('has')
+            ->with($this->stringStartsWith(FlightService::DEFAULT_CACHE_PREFIX))
+            ->willReturn(false);
+        $cache->expects($this->never())
+            ->method('get');
+        $cache
+            ->expects($this->once())
+            ->method('set')
+            ->with(
+                key: $this->stringStartsWith(FlightService::DEFAULT_CACHE_PREFIX),
+                value: $this->identicalTo('Foobar 123'),
+                ttl: $this->equalTo(new \DateInterval(FlightService::DEFAULT_CACHE_TTL)),
+            )
+            ->willReturn(true);
+        $flightService = new FlightService(new HttpFactory(), $mockHttpClient, cache: $cache);
+        $flightService->setCachePrefix('mytestcacheprefix.');
+        $flightService->setCachePrefix();
+        $request = $flightService->createRequest('GET', 'foobar');
+        $response = $flightService->makeRequest($request);
+        $this->assertEquals('Foobar 123', $response);
+    }
+
+    public function testCacheKeyUniqueness(): void
+    {
+
+        $history = [];
+        $mockHttpClient = $this->makeMockHttpClient([
+            new Response(200, [], 'Foobar 123'),
+            new Response(200, [], 'Another Thing'),
+        ], $history);
+        $cache = $this->createMock(Psr16Cache::class);
+        $cacheHistory = [];
+        $cache
+            ->expects($this->exactly(2))
+            ->method('has')
+            ->with($this->stringStartsWith(FlightService::DEFAULT_CACHE_PREFIX),)
+            ->willReturnCallback(function (...$args) use (&$cacheHistory) {
+                $cacheHistory[] = $args[0];
+                return false;
+            });
+        $cache->expects($this->never())
+            ->method('get');
+        $cache
+            ->expects($this->exactly(2))
+            ->method('set')
+            ->willReturn(true);
+        $flightService = new FlightService(new HttpFactory(), $mockHttpClient, cache: $cache);
+        $request = $flightService->createRequest('GET', 'foobar');
+        $response = $flightService->makeRequest($request);
+        $this->assertEquals('Foobar 123', $response);
+
+        $request = $flightService->createRequest('GET', 'somethingelse');
+        $response = $flightService->makeRequest($request);
+        $this->assertEquals('Another Thing', $response);
+        $this->assertNotEquals($cacheHistory[0], $cacheHistory[1]);
+    }
+
+    public function testCacheTTLCanBeSetToString(): void
+    {
+        $history = [];
+        $mockHttpClient = $this->makeMockHttpClient([
+            new Response(200, [], 'Foobar 123'),
+        ], $history);
+        $cache = $this->createMock(Psr16Cache::class);
+        $cache->expects($this->once())->method('has')->willReturn(false);
+        $cache
+            ->expects($this->once())
+            ->method('set')
+            ->with(
+                $this->anything(),
+                $this->anything(),
+                $this->equalTo(new DateInterval('PT4H')),
+            )->willReturn(true);
+        $flightService = new FlightService(new HttpFactory(), $mockHttpClient, cache: $cache);
+        $this->assertNotEquals('PT4H', FlightService::DEFAULT_CACHE_TTL);
+        $flightService->setCacheTTL('PT4H');
+        $request = $flightService->createRequest('GET', 'foobar');
+        $response = $flightService->makeRequest($request);
+        $this->assertEquals('Foobar 123', $response);
+    }
+
+    public function testCacheTTLCanBeSetToInt(): void
+    {
+        $history = [];
+        $mockHttpClient = $this->makeMockHttpClient([
+            new Response(200, [], 'Foobar 123'),
+        ], $history);
+        $cache = $this->createMock(Psr16Cache::class);
+        $cache->expects($this->once())->method('has')->willReturn(false);
+        $cache
+            ->expects($this->once())
+            ->method('set')
+            ->with(
+                $this->anything(),
+                $this->anything(),
+                $this->equalTo(new DateInterval('PT112S')),
+            )->willReturn(true);
+        $flightService = new FlightService(new HttpFactory(), $mockHttpClient, cache: $cache);
+        $this->assertNotEquals('PT112S', FlightService::DEFAULT_CACHE_TTL);
+        $flightService->setCacheTTL(112);
+        $request = $flightService->createRequest('GET', 'foobar');
+        $response = $flightService->makeRequest($request);
+        $this->assertEquals('Foobar 123', $response);
+    }
+
+    public function testCacheTTLCanBeUnset(): void
+    {
+        $history = [];
+        $mockHttpClient = $this->makeMockHttpClient([
+            new Response(200, [], 'Foobar 123'),
+        ], $history);
+        $cache = $this->createMock(Psr16Cache::class);
+        $cache->expects($this->once())->method('has')->willReturn(false);
+        $cache
+            ->expects($this->once())
+            ->method('set')
+            ->with(
+                $this->anything(),
+                $this->anything(),
+                $this->equalTo(new DateInterval(FlightService::DEFAULT_CACHE_TTL)),
+            )->willReturn(true);
+        $flightService = new FlightService(new HttpFactory(), $mockHttpClient, cache: $cache);
+        $flightService->setCacheTTL(112);
+        $flightService->setCacheTTL();
+        $request = $flightService->createRequest('GET', 'foobar');
+        $response = $flightService->makeRequest($request);
+        $this->assertEquals('Foobar 123', $response);
+    }
+
+    public static function responseCodes(): array
+    {
+        return [
+            [400, 'Bad Request'],
+            [401, 'Unauthorized'],
+            [403, 'Forbidden'],
+            [404, 'Not Found'],
+            [405, 'Method Not Allowed'],
+            [406, 'Not Acceptable'],
+            [408, 'Request Time-out'],
+            [418, 'I\'m a teapot'],
+            [422, 'Unprocessable Entity'],
+            [429, 'Too Many Requests'],
+            [500, 'Internal Server Error'],
+            [501, 'Not Implemented'],
+            [502, 'Bad Gateway'],
+            [503, 'Service Unavailable'],
+            [504, 'Gateway Time-out'],
+        ];
+    }
+
+    #[DataProvider('responseCodes')]
+    public function testResponses(int $code, string $message): void
+    {
+        $httpClient = $this->makeMockHttpClient([
+            new Response($code, [], $message),
+        ]);
+        $this->expectException(GoogleException::class);
+        $this->expectExceptionCode($code);
+        $this->expectExceptionMessage("HTTP request to Google Flights failed: [{$code}] {$message}");
+        $flightService = new FlightService(new HttpFactory(), $httpClient);
+        $flightService
+            ->query()
+            ->addSegment('LGW', 'FAO')
+            ->get();
+    }
 }
