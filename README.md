@@ -209,10 +209,6 @@ use Mintopia\Flights\FlightService;
 use Symfony\Component\Cache\Psr16Cache;
 use Symfony\Component\Cache\Adapter\FilesystemAdapter
 
-// The cache also supports a PSR-3 logger
-$log = new Logger('flights');
-$log->pushHandler(new StreamHandler('flights.log', Level::Debug));
-
 // Use Symfony's filesystem cache, but pass it through their PSR16 translation first
 $cache = new Psr16Cache(new FilesystemAdapter());
 
