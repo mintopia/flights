@@ -204,9 +204,6 @@ The library supports a PSR16 compatible cache. To use it, either pass it in as a
 with the `setCacheTTL` method which can take either a DateInterval object, a date interval string or a number of
 seconds. The default is 1 hour.
 
-There are two PSR16 cache interfaces included with the library, mostly for testing, and they aren't enabled by default.
-You can instantiate them and pass them in if you want them, but you probably have better ones available to you.
-
 ```php
 use Mintopia\Flights\FlightService;
 use Symfony\Component\Cache\Psr16Cache;
