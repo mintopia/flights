@@ -2,8 +2,8 @@
 
 [![codecov](https://codecov.io/gh/mintopia/flights/branch/main/graph/badge.svg?token=W3KMU4MZ9P)](https://codecov.io/gh/mintopia/flights)
 ![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/mintopia/flights/code-quality.yml?branch=main)
-![Packagist Version](https://img.shields.io/packagist/v/mintopia/flights)
-![GitHub Sponsors](https://img.shields.io/github/sponsors/mintopia)
+[![Packagist Version](https://img.shields.io/packagist/v/mintopia/flights)](https://packagist.org/packages/mintopia/flights)
+[![GitHub Sponsors](https://img.shields.io/github/sponsors/mintopia)](https://github.com/sponsors/mintopia)
 
 ## Introduction
 
