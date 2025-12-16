@@ -353,6 +353,12 @@ copied to the correct location.
 - Laravel adapter to support configuration, service provider, Collections, CarbonImmutable for datetimes (this is done,
   I just need to release it!)
 
+## Changelog
+
+### v1.0.0 - 16th December 2025
+
+- Initial version of the library
+
 ## Thanks
 
 - [Zoë O'Connell](https://github.com/zoeimogen) for inspiring me with her
